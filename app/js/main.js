@@ -2007,11 +2007,12 @@ async function doRekey({ removed = [], admit = null, reason = "manual" } = {}) {
   lastSentPos = null;
   resetMemberAlerts();
   mapView?.clearAll();
-  await commitGeneration(prev, {
-    by: state.identity.memberId,
-    pinned: prevPinned,
-    genRoster: prevRoster,
-  });
+  // No window over a membership change: see startGraceWatch.
+  const watch =
+    removed.length || admit
+      ? null
+      : { by: state.identity.memberId, pinned: prevPinned, genRoster: prevRoster };
+  await commitGeneration(prev, watch);
   await enterCircle();
   void reason;
   // Keyed entries, not bare values: a member pinned from the network is stored
@@ -2059,6 +2060,13 @@ const winnerOf = (a, b) => (a < b ? a : b);
 
 // Keep the generation this device just left, and keep reading the channel it
 // left, so a re-key that raced ours is not lost with it.
+//
+// Only ever opened for a re-key that changed nobody's membership. A member who
+// has just been removed still holds the old generation's keys and is still in
+// the roster the window remembers, so a window opened over a removal would let
+// them post a competing re-key on the old channel and be adopted back into the
+// circle by their own removal. Losing the race and splitting is the bug being
+// fixed here; undoing a removal is worse than the bug.
 function startGraceWatch(prev, { by, pinned, genRoster }) {
   endGraceWatch();
   if (state.demo || state.locked || !state.identity) {
@@ -2123,9 +2131,17 @@ async function onGraceControl(senderId, msg, epoch) {
     return;
   }
   if (senderId === grace.by) return; // our own wrap coming back to us
-  if (winnerOf(senderId, grace.by) !== senderId) return; // ours won, stay put
   const applied = await applyRekey({ identity: state.identity, gen: grace.gen, msg, epoch, senderId });
   if (!applied) return;
+  // A re-key that takes somebody out beats one that does not, whatever the ids
+  // say. Otherwise a removal that lost a coin toss would be dropped on the
+  // floor and the member it removed would stay in half the circle. Anyone who
+  // can send this could have removed the same member on the live channel a
+  // second earlier, so it is no new power.
+  if (!applied.removed.length && winnerOf(senderId, grace.by) !== senderId) {
+    zero(applied.seed);
+    return; // ours won, stay put
+  }
   await withCircleGuardWaiting(() => adoptOverLoser(applied, senderId));
 }
 
@@ -2214,7 +2230,13 @@ async function adoptRekey(applied, senderId) {
   lastSentPos = null;
   resetMemberAlerts();
   mapView?.clearAll();
-  await commitGeneration(prev, { by: senderId, pinned: prevPinned, genRoster: prevRoster });
+  // Same bar as the rotator's side, plus one: a roster this device does not
+  // agree with is a membership question the window must not answer by itself.
+  const watch =
+    applied.removed.length || !agrees
+      ? null
+      : { by: senderId, pinned: prevPinned, genRoster: prevRoster };
+  await commitGeneration(prev, watch);
   await enterCircle();
   if (removedNames.length === 1) {
     ui.toast(t("{who} removed {gone}.", { who: senderName, gone: removedNames[0] }));
