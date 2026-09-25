@@ -139,7 +139,8 @@ node test/e2e_wrapper.mjs        # the app-vs-website split and the demo scene
 
 The QR tests cross-check the encoder against the Python `qrcode` library when it
 is installed (`pip install qrcode`); without it those checks skip rather than
-fail, so a bare clone still runs green.
+fail. Run `tools/sync-vendor.sh` first, though: two service-worker checks assert
+that every precached path exists on disk, and `app/vendor` is not in the repo.
 
 The e2e suites drive real headless Firefox profiles through the flows named
 above, dump the relay database at the end, and assert no name and no

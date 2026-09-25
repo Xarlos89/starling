@@ -297,6 +297,22 @@ let roster = null;
 let poller = null;
 let sender = null;
 
+// The generation this device just left, kept readable for a short while.
+//
+// Two members who re-key the same generation in the same minute each open a
+// g+1 of their own. Without this, neither ever sees the other's wraps, because
+// moving tears the poller down, and the circle splits across two channels with
+// nobody told. So the old generation and the channel it lived on stay open for
+// REKEY_GRACE_MS, long enough for the competing wrap to arrive and be judged.
+//
+// It holds the roster as it was before the move, not as it is now: adopting
+// the winner has to start from the generation both rotators worked from, or
+// the roster maths runs against the loser's idea of the circle.
+let grace = null;
+let graceRoster = null;
+let gracePoller = null;
+let graceTimer = 0;
+
 // The RAM-only retry line for bye, checkin and SOS: the three one-shot
 // messages whose silent loss lies to the circle. It re-seals through
 // sendMsg on every attempt and holds no storage by construction; lockNow,
@@ -1976,6 +1992,8 @@ async function doRekey({ removed = [], admit = null, reason = "manual" } = {}) {
 
   teardownNet();
   const prev = state.gen;
+  const prevPinned = state.pinned;
+  const prevRoster = state.genRoster;
   state.gen = next;
   state.pinned = nextPinned;
   state.genRoster = new Set(nextPinned.keys());
@@ -1989,7 +2007,11 @@ async function doRekey({ removed = [], admit = null, reason = "manual" } = {}) {
   lastSentPos = null;
   resetMemberAlerts();
   mapView?.clearAll();
-  await commitGeneration(prev);
+  await commitGeneration(prev, {
+    by: state.identity.memberId,
+    pinned: prevPinned,
+    genRoster: prevRoster,
+  });
   await enterCircle();
   void reason;
   // Keyed entries, not bare values: a member pinned from the network is stored
@@ -2006,10 +2028,14 @@ async function doRekey({ removed = [], admit = null, reason = "manual" } = {}) {
 // circle is, and says plainly that a restart would strand this device: the
 // alternative is to look fine now and be silently alone after a reboot. The
 // old chain keys are only destroyed once the new ones are durable.
-async function commitGeneration(prev) {
+async function commitGeneration(prev, watch) {
   try {
     await writeGenAtRest();
-    prev.ratchet.destroy();
+    if (watch) {
+      startGraceWatch(prev, watch);
+    } else {
+      prev.ratchet.destroy();
+    }
   } catch (e) {
     window.__starlingErrors.push(`rekey persist: ${String(e)}`);
     ui.toast(
@@ -2017,6 +2043,118 @@ async function commitGeneration(prev) {
       "warn",
     );
   }
+}
+
+// How long the generation just left stays readable. Long enough for a
+// competing re-key to arrive on the old channel through one normal poll and be
+// judged, short enough that the old chain keys are gone well before the
+// ratchet's own history window would have dropped them.
+const REKEY_GRACE_MS = 5 * 60 * 1000;
+
+// Of two re-keys for the same generation, the one from the lower member id
+// wins. Any deterministic rule works as long as every device applies the same
+// one; ids are already unique, already known to everybody who can read either
+// wrap, and need nothing from the wire.
+const winnerOf = (a, b) => (a < b ? a : b);
+
+// Keep the generation this device just left, and keep reading the channel it
+// left, so a re-key that raced ours is not lost with it.
+function startGraceWatch(prev, { by, pinned, genRoster }) {
+  endGraceWatch();
+  if (state.demo || state.locked || !state.identity) {
+    prev.ratchet.destroy();
+    return;
+  }
+  grace = { gen: prev, by, pinned, genRoster, until: Date.now() + REKEY_GRACE_MS };
+  // A read-only view of the roster as it was: the grace roster must not pin
+  // anyone into the live circle, and nothing it learns outlives the window.
+  const graceStore = {
+    get: (id) => grace?.pinned.get(id),
+    set: (id, rec) => grace?.pinned.set(id, canonPinned(rec)),
+    get size() {
+      return grace ? grace.pinned.size : 0;
+    },
+  };
+  graceRoster = createRoster({
+    channelId: prev.channelId,
+    ratchet: prev.ratchet,
+    selfId: state.identity.memberId,
+    pinned: graceStore,
+    onControl: onGraceControl,
+    onKeyChange: () => {},
+  });
+  gracePoller = createPoller({
+    channelId: prev.channelId,
+    roster: graceRoster,
+    ratchet: prev.ratchet,
+    onChange: () => {},
+    onStatus: () => {},
+    onRetired: () => endGraceWatch(),
+  });
+  gracePoller.start();
+  graceTimer = setTimeout(endGraceWatch, REKEY_GRACE_MS);
+}
+
+function endGraceWatch() {
+  clearTimeout(graceTimer);
+  graceTimer = 0;
+  gracePoller?.stop();
+  gracePoller = null;
+  graceRoster = null;
+  if (grace) {
+    grace.gen.ratchet.destroy();
+    grace = null;
+  }
+}
+
+// A re-key arriving on the channel this device has already left. It is only
+// ever one thing: somebody who was working from the same generation rotated at
+// the same moment we did. Both are valid, so the tie-break decides, and the
+// loser moves rather than sitting alone on a generation nobody else is on.
+async function onGraceControl(senderId, msg, epoch) {
+  if (!grace || !state.gen || state.locked) return;
+  if (Date.now() > grace.until) return;
+  if (circleControl(msg) !== "rekey") return;
+  if (msg.to !== state.identity.memberId) return;
+  // The same bar the live channel sets: a generation only moves for a member
+  // it started with, never for a key that arrived with the message.
+  if (!grace.genRoster.has(senderId) || !grace.pinned.has(senderId)) {
+    window.__starlingErrors.push("rekey from an unpinned member on the old channel: dropped");
+    return;
+  }
+  if (senderId === grace.by) return; // our own wrap coming back to us
+  if (winnerOf(senderId, grace.by) !== senderId) return; // ours won, stay put
+  const applied = await applyRekey({ identity: state.identity, gen: grace.gen, msg, epoch, senderId });
+  if (!applied) return;
+  await withCircleGuardWaiting(() => adoptOverLoser(applied, senderId));
+}
+
+// Rewind to the generation both rotators worked from, then take the winner's
+// re-key through the ordinary path. Starting anywhere else would run the
+// roster maths against the loser's idea of the circle rather than the one the
+// winner wrapped to.
+async function adoptOverLoser(applied, senderId) {
+  if (!grace || !state.gen || state.locked) {
+    zero(applied.seed);
+    return false;
+  }
+  const losing = state.gen;
+  const held = grace;
+  // The watch is over either way: its generation becomes the live one for the
+  // length of the adoption, and adoptRekey opens a fresh window of its own.
+  clearTimeout(graceTimer);
+  graceTimer = 0;
+  gracePoller?.stop();
+  gracePoller = null;
+  graceRoster = null;
+  grace = null;
+  teardownNet();
+  state.gen = held.gen;
+  state.pinned = held.pinned;
+  state.genRoster = held.genRoster;
+  losing.ratchet.destroy();
+  lastSentPos = null;
+  return adoptRekey(applied, senderId);
 }
 
 // Apply a re-key somebody else signed. The generation is sound whatever the
@@ -2060,6 +2198,8 @@ async function adoptRekey(applied, senderId) {
 
   teardownNet();
   const prev = state.gen;
+  const prevPinned = state.pinned;
+  const prevRoster = state.genRoster;
   state.gen = next;
   state.pinned = nextPinned;
   state.genRoster = new Set(nextPinned.keys());
@@ -2074,7 +2214,7 @@ async function adoptRekey(applied, senderId) {
   lastSentPos = null;
   resetMemberAlerts();
   mapView?.clearAll();
-  await commitGeneration(prev);
+  await commitGeneration(prev, { by: senderId, pinned: prevPinned, genRoster: prevRoster });
   await enterCircle();
   if (removedNames.length === 1) {
     ui.toast(t("{who} removed {gone}.", { who: senderName, gone: removedNames[0] }));
@@ -2751,6 +2891,10 @@ function lockNow() {
   // The retry line holds nothing across a lock: what a locked device must
   // not act on, it forgets.
   outbox.clear();
+  // Before the pollers, for the same reason the vault key goes: a generation
+  // being held open for a re-key race is chain keys, and a locked device holds
+  // none.
+  endGraceWatch();
   poller?.stop();
   poller = null;
   sender?.cancel?.();
@@ -3877,6 +4021,10 @@ function awaitBye(bye, ms = 1500) {
 // Tear down everything talking to the current channel, exactly as rotation
 // does; nothing may land on the old channel after a switch.
 function teardownNet() {
+  // The window belongs to the generation this device is leaving. Moving again,
+  // locking, switching circles or losing the chain all end it, and the old
+  // keys go with it.
+  endGraceWatch();
   poller?.stop();
   poller = null;
   sender?.cancel();
@@ -3889,6 +4037,9 @@ function teardownNet() {
 }
 
 function applyActive(c) {
+  // A circle switch leaves nothing of the old one behind, the held generation
+  // included.
+  endGraceWatch();
   state.gen?.ratchet.destroy();
   state.identity = c.identity;
   state.gen = restoreGeneration(c, c.secret);
