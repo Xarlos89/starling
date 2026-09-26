@@ -780,7 +780,9 @@ function alertItems() {
   if (state.stopRecord) {
     const text =
       state.stopRecord.route === "swipe"
-        ? t("The app was closed while sharing was on, which stops it every time. If that was not you, check who has access to this phone.")
+        ? shareResumed && state.sharing
+          ? t("The app was closed while sharing was on, which stopped it, and opening it again put it back on. If closing it was not you, check who has access to this phone.")
+          : t("The app was closed while sharing was on, which stops it every time. If that was not you, check who has access to this phone.")
         : t("Someone tapped Stop on the sharing notification. If that was not you, check who has access to this phone.");
     items.push({
       id: "stop-record",
@@ -4538,6 +4540,7 @@ async function setSharing(on) {
     // the timer, a circle switch, a lock. None of them should come back by
     // themselves on the next open.
     await disarmShare();
+    shareResumed = false;
     // Stopping by hand also ends the countdown; a timer must never outlive
     // the share it was counting for.
     clearTimeout(shareDeadlineTimer);
@@ -4605,6 +4608,11 @@ async function disarmShare() {
 // come back before the passcode does.
 let shareResumeTried = false;
 
+// True while a share that came back on this open is still running. The stop
+// card is a warning about the app being closed, and it has to stop telling
+// people sharing ended once it plainly has not.
+let shareResumed = false;
+
 async function resumeShareIfArmed() {
   if (shareResumeTried) return false;
   shareResumeTried = true;
@@ -4619,7 +4627,13 @@ async function resumeShareIfArmed() {
   // The wrapper says how the last share ended. A person who pressed Stop on
   // the notification meant it, so that is not resumed; a swipe, a reboot or
   // the OS reclaiming the process is not a decision and is.
-  if (state.stopRecord?.route === "notif") {
+  //
+  // Only a Stop that came after this share started counts. Nothing clears the
+  // native record except the card being dismissed, so a Stop from days ago sits
+  // there through every later share, and without the timestamp it would block
+  // each of their resumes in silence. An undated record is treated as a
+  // decision, because refusing to resume is the safe way to be wrong.
+  if (state.stopRecord?.route === "notif" && (Number(state.stopRecord.at) || Infinity) >= (armed.at || 0)) {
     await disarmShare();
     return false;
   }
@@ -4632,6 +4646,7 @@ async function resumeShareIfArmed() {
   await setSharing(true);
   if (!state.sharing) return false; // permission gone, startWatch refused
   if (armed.deadline) setShareWindow(Math.max(1000, armed.deadline - Date.now()));
+  shareResumed = true;
   ui.toast(t("Sharing was on when the app closed, so it is back on."));
   render();
   return true;
@@ -5410,6 +5425,7 @@ if (debugHooks()) window.__starlingInternals = {
   resumeShareIfArmed,
   resetShareResumeGuard: () => {
     shareResumeTried = false;
+    shareResumed = false;
   },
 };
 

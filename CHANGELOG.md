@@ -3,7 +3,7 @@
 All notable changes to Starling are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
-## [0.12.0]
+## [0.12.1]
 
 Two people with four phones between them reported the same thing: sharing was
 on, the app got closed, and reopening showed sharing off. Separately, a stranger
@@ -39,12 +39,24 @@ a circle in half without telling anyone.
   removal. So a re-key that removes or admits anyone opens no window at all, and
   a re-key carrying removals beats a plain one whatever the ids say, so a removal
   is never dropped by a coin toss.
-
+- **A Stop you pressed days ago no longer blocks today's resume.** Nothing
+  clears that record except dismissing the card it puts on screen, so it sits
+  there through every later share. The resume now only treats it as a decision
+  when it happened after the share it is refusing to bring back, and an undated
+  record still counts as one, because refusing to resume is the safe way to be
+  wrong.
+- **The card about the app being closed no longer contradicts the resume.** It
+  said sharing stops every time the app closes, which was true until this
+  release and was sitting under a line saying sharing was back on. It says what
+  happened now, and goes back to the general wording if you turn sharing off.
 - **Relicensed to GPL-3.0-or-later.** Releases up to v0.11.0 stay under MIT.
 
 Known gap, written where it belongs rather than hidden: the grace window lives
 in memory, so a device that restarts inside those five minutes comes back on the
 generation it had, exactly as it does today.
+
+0.12.0 was tagged and never published. Everything written up here was in it, and
+the last two entries are why it was not the release.
 
 ## [0.11.0]
 

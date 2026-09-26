@@ -137,6 +137,50 @@ test("a locked device does not resume a share, because it holds no keys", async 
   assert.ok(await dbGet(SHARE_ARMED), "the record survives the lock, so unlocking can still resume");
 });
 
+// Nothing clears the native stop record except a person dismissing the card,
+// so a Stop pressed last week is still sitting there during every share after
+// it. Without the timestamp it would veto each of their resumes, which is the
+// reported bug coming back through the fix for it.
+test("a Stop from before this share started does not veto the resume", async () => {
+  const startedAt = Date.now() - 60_000;
+  await armedWorld({
+    armed: { at: startedAt, windowMs: 0, deadline: 0 },
+    stopRecord: { route: "notif", at: startedAt - 86_400_000 },
+  });
+  assert.equal(await internals.resumeShareIfArmed(), true, "a day-old Stop is about a share that is over");
+  assert.equal(state.sharing, true);
+  await internals.setSharing(false);
+});
+
+test("a Stop with no timestamp is treated as a decision, because refusing is the safe way to be wrong", async () => {
+  await armedWorld({
+    armed: { at: Date.now() - 60_000, windowMs: 0, deadline: 0 },
+    stopRecord: { route: "notif" },
+  });
+  assert.equal(await internals.resumeShareIfArmed(), false);
+  assert.equal(state.sharing, false);
+});
+
+// The card says the app being closed stops sharing every time. After a resume
+// that is flatly untrue, and it was sitting there under a toast saying the
+// opposite.
+test("the swipe card stops claiming sharing ended once the resume put it back", async () => {
+  await armedWorld({
+    armed: { at: Date.now() - 60_000, windowMs: 0, deadline: 0 },
+    stopRecord: { route: "swipe", at: Date.now() - 30_000 },
+  });
+  assert.equal(await internals.resumeShareIfArmed(), true);
+
+  const card = internals.alertItems().find((i) => i.id === "stop-record");
+  assert.ok(card, "the warning still stands: something closed the app mid-share");
+  assert.match(card.text, /put it back on/, "and it says what actually happened");
+  assert.doesNotMatch(card.text, /stops it every time/);
+
+  await internals.setSharing(false);
+  const after = internals.alertItems().find((i) => i.id === "stop-record");
+  assert.match(after.text, /stops it every time/, "with sharing off again the general rule is the true thing to say");
+});
+
 test("no record means no resume", async () => {
   await armedWorld({ armed: null });
   assert.equal(await internals.resumeShareIfArmed(), false);
