@@ -458,6 +458,8 @@ export const es = {
   "stops in {left}": "se detiene en {left}",
   "Stop by itself:": "Parar solo:",
   "telling your circle...": "avisando a tu c\u00edrculo...",
+  "Sharing was on when the app closed, so it is back on.":
+    "La ubicaci\u00f3n se estaba compartiendo cuando se cerr\u00f3 la aplicaci\u00f3n, as\u00ed que vuelve a estar activa.",
   "Timed share ended. Your circle sees you stopped sharing.": "El tiempo de compartir termin\u00f3. Tu c\u00edrculo ve que dejaste de compartir.",
   "west": "oeste",
   "Who could read you": "Qui\u00e9n podr\u00eda leerte",

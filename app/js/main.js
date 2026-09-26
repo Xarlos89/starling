@@ -1371,6 +1371,10 @@ async function enterCircle() {
   startRekeyTimer();
   startInviteWatch();
   showMap();
+  // Last, and deliberately not awaited into the boot path: a resume needs the
+  // sender and the poller this call just armed, and nothing above it should
+  // wait on a geolocation prompt.
+  resumeShareIfArmed().catch((e) => window.__starlingErrors.push(`share resume: ${String(e)}`));
 }
 
 // The one call that actually destroys expired key material. Nothing else walks
@@ -4513,6 +4517,12 @@ async function setSharing(on) {
     stopGeo = startWatch(onFix, onGeoError);
     // startWatch can report an error synchronously and turn sharing back off.
     if (state.sharing) {
+      // Written down so a share that dies with the process can come back.
+      // Swiping the app away kills the page that seals every position, so the
+      // service ends the share; without this record the app reopened with
+      // sharing quietly off, which is what two people reported from four
+      // phones. Only the fact and the window go down, never a position.
+      await armShare();
       shareTimer = setInterval(() => sendLoc(true), SHARE_INTERVAL_MS);
       // Where the platform gives a web app no background execution at all,
       // sharing only runs while the screen is on and the app is in front.
@@ -4524,6 +4534,10 @@ async function setSharing(on) {
     state.sharing = false;
     state.sosActive = false;
     state.geoFailed = false;
+    // This path is every deliberate end: the toggle, the notification's Stop,
+    // the timer, a circle switch, a lock. None of them should come back by
+    // themselves on the next open.
+    await disarmShare();
     // Stopping by hand also ends the countdown; a timer must never outlive
     // the share it was counting for.
     clearTimeout(shareDeadlineTimer);
@@ -4549,6 +4563,78 @@ async function setSharing(on) {
     return bye;
   }
   render();
+}
+
+// The share survives the process, the way the people using it expect.
+//
+// Sharing itself is RAM: state.sharing, the poll timer and the geolocation
+// watch all die with the page. That is why swiping the app away ends a share,
+// and why reopening used to show sharing off with no way back except turning
+// it on again. This records that a share was running, and what was left of its
+// timer, so the next open can put it back.
+//
+// It holds no position and no key, only that sharing was on and how long it
+// had left, which is the same class of fact the wrapper already writes when a
+// share ends. A share the person ended themselves is never recorded.
+const SHARE_ARMED = "shareArmed";
+
+async function armShare() {
+  try {
+    await dbSet(SHARE_ARMED, {
+      at: Date.now(),
+      windowMs: shareWindowMs || 0,
+      deadline: shareDeadline || 0,
+    });
+  } catch (e) {
+    // A share that cannot be written down still runs; it just will not come
+    // back by itself, which is the behaviour this replaces.
+    window.__starlingErrors.push(`share arm: ${String(e)}`);
+  }
+}
+
+async function disarmShare() {
+  try {
+    await dbDel(SHARE_ARMED);
+  } catch (e) {
+    window.__starlingErrors.push(`share disarm: ${String(e)}`);
+  }
+}
+
+// Called once per process, at the end of entering a circle, which is also
+// where an unlock lands: a locked device holds no keys, so a share must not
+// come back before the passcode does.
+let shareResumeTried = false;
+
+async function resumeShareIfArmed() {
+  if (shareResumeTried) return false;
+  shareResumeTried = true;
+  if (state.demo || state.locked || state.sharing || !state.gen || !sender) return false;
+  let armed = null;
+  try {
+    armed = await dbGet(SHARE_ARMED);
+  } catch {
+    return false;
+  }
+  if (!armed) return false;
+  // The wrapper says how the last share ended. A person who pressed Stop on
+  // the notification meant it, so that is not resumed; a swipe, a reboot or
+  // the OS reclaiming the process is not a decision and is.
+  if (state.stopRecord?.route === "notif") {
+    await disarmShare();
+    return false;
+  }
+  // A window that already ran out while the app was closed is a share that
+  // was supposed to be over.
+  if (armed.deadline && Date.now() >= armed.deadline) {
+    await disarmShare();
+    return false;
+  }
+  await setSharing(true);
+  if (!state.sharing) return false; // permission gone, startWatch refused
+  if (armed.deadline) setShareWindow(Math.max(1000, armed.deadline - Date.now()));
+  ui.toast(t("Sharing was on when the app closed, so it is back on."));
+  render();
+  return true;
 }
 
 // A share that ends by itself. RAM only, like sharing itself: neither
@@ -5320,6 +5406,11 @@ if (debugHooks()) window.__starlingInternals = {
   notifyEvent,
   panic,
   setSharing,
+  setupNet,
+  resumeShareIfArmed,
+  resetShareResumeGuard: () => {
+    shareResumeTried = false;
+  },
 };
 
 // ----------------------------------------------------------------- boot
@@ -5382,6 +5473,26 @@ async function boot() {
     $("#screen-oldweb").hidden = false;
     $("#screen-onboarding").hidden = true;
     return;
+  }
+
+  // A stop that happened outside the page (notification Stop, task swipe)
+  // while nobody was here to see it. The card stays up until dismissed, so a
+  // reopen that misses this render still finds it on the next one.
+  //
+  // Read here rather than after the circle is entered: resumeShareIfArmed
+  // asks whether the last share was ended by a person or by the process
+  // dying, and it runs at the end of entering a circle, so the answer has to
+  // be in hand before that.
+  if (isWrapped()) {
+    try {
+      const raw = native()?.readStopRecord?.();
+      if (raw) {
+        const rec = JSON.parse(raw);
+        if (rec && (rec.route === "notif" || rec.route === "swipe")) state.stopRecord = rec;
+      }
+    } catch {
+      // a malformed native record is not worth failing boot over
+    }
   }
 
   const params = new URLSearchParams(location.search);
@@ -5626,21 +5737,6 @@ async function boot() {
     if (!state.locked) {
       if (params.get("demo") === "1") startDemo();
       else if (invite) promptJoin(invite);
-    }
-  }
-
-  // A stop that happened outside the page (notification Stop, task swipe)
-  // while nobody was here to see it. The card stays up until dismissed, so a
-  // reopen that misses this render still finds it on the next one.
-  if (isWrapped()) {
-    try {
-      const raw = native()?.readStopRecord?.();
-      if (raw) {
-        const rec = JSON.parse(raw);
-        if (rec && (rec.route === "notif" || rec.route === "swipe")) state.stopRecord = rec;
-      }
-    } catch {
-      // a malformed native record is not worth failing boot over
     }
   }
 
