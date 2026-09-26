@@ -117,6 +117,16 @@ sharing like Signal's, not an always-on tracker: when the OS suspends the tab,
 sharing pauses. That is the honest ceiling of the web platform, and the app
 says so instead of pretending otherwise.
 
+The Android app goes as far past that ceiling as it can. A share runs in a
+foreground service typed for location, so a backgrounded app or a dark screen
+keeps posting. Swiping the app out of recents still ends the share, because the
+code that seals each position lives in the page and a torn-down process holds no
+keys, and the service stops rather than sit there looking alive with nothing
+going out. Since 0.12.0 the app writes down that a share was running and puts it
+back when you reopen it, saying so on screen. A share you ended yourself is
+never resumed, a timed share that ran out while the app was closed stays ended,
+and a locked phone resumes nothing until you unlock it.
+
 ## Run it
 
 No build step, no dependencies to install. Needs Node 24 or newer.
@@ -139,7 +149,8 @@ node test/e2e_wrapper.mjs        # the app-vs-website split and the demo scene
 
 The QR tests cross-check the encoder against the Python `qrcode` library when it
 is installed (`pip install qrcode`); without it those checks skip rather than
-fail, so a bare clone still runs green.
+fail. Run `tools/sync-vendor.sh` first, though: two service-worker checks assert
+that every precached path exists on disk, and `app/vendor` is not in the repo.
 
 The e2e suites drive real headless Firefox profiles through the flows named
 above, dump the relay database at the end, and assert no name and no

@@ -3,9 +3,48 @@
 All notable changes to Starling are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
-## [Unreleased]
+## [0.12.0]
 
-- Relicensed to GPL-3.0-or-later. Releases up to v0.11.0 stay under MIT.
+Two people with four phones between them reported the same thing: sharing was
+on, the app got closed, and reopening showed sharing off. Separately, a stranger
+read the protocol and found that two members re-keying at the same moment split
+a circle in half without telling anyone.
+
+- **A share survives the app closing.** Sharing has always run in a foreground
+  service typed for location, so a backgrounded app or a dark screen kept it
+  going, but swiping the app out of recents ends it: the part that seals each
+  position lives in the page, and a torn-down process has no keys left to seal
+  with. That has not changed, and it cannot without moving the encryption out of
+  the page. What has changed is that the app now writes down that a share was
+  running, and puts it back when you next open it, with a line saying so. A
+  share you ended yourself never comes back: pressing Stop on the notification
+  is a decision, and it is remembered as one. A timed share that ran out while
+  the app was closed stays ended, and one with time left comes back with the
+  remainder rather than a fresh window. A locked phone resumes nothing until it
+  is unlocked, because a locked phone holds no keys.
+- **Two members re-keying at the same moment no longer split the circle.** Each
+  rotator opened its own next generation on its own channel, and moving tore
+  down the poller on the channel it left, so neither ever saw the other and
+  everybody else followed whichever re-key they happened to read first. Nothing
+  surfaced it: each side's roster agreed with the rotator it had followed. The
+  generation just left now stays readable for five minutes on its old channel, a
+  competing re-key for the same generation is settled by lowest member id, and
+  the losing side rewinds to the generation both rotators started from and
+  adopts the winner. No new crypto and nothing new on the wire, since every
+  rotator already wraps to every member it keeps.
+- **That window is never opened over a membership change.** A member removed by
+  a re-key still holds the old channel's keys, and the window remembers the
+  roster from before the move, so a window opened over a removal would have let
+  them post a competing re-key and be adopted back into the circle by their own
+  removal. So a re-key that removes or admits anyone opens no window at all, and
+  a re-key carrying removals beats a plain one whatever the ids say, so a removal
+  is never dropped by a coin toss.
+
+- **Relicensed to GPL-3.0-or-later.** Releases up to v0.11.0 stay under MIT.
+
+Known gap, written where it belongs rather than hidden: the grace window lives
+in memory, so a device that restarts inside those five minutes comes back on the
+generation it had, exactly as it does today.
 
 ## [0.11.0]
 

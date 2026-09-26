@@ -297,6 +297,22 @@ let roster = null;
 let poller = null;
 let sender = null;
 
+// The generation this device just left, kept readable for a short while.
+//
+// Two members who re-key the same generation in the same minute each open a
+// g+1 of their own. Without this, neither ever sees the other's wraps, because
+// moving tears the poller down, and the circle splits across two channels with
+// nobody told. So the old generation and the channel it lived on stay open for
+// REKEY_GRACE_MS, long enough for the competing wrap to arrive and be judged.
+//
+// It holds the roster as it was before the move, not as it is now: adopting
+// the winner has to start from the generation both rotators worked from, or
+// the roster maths runs against the loser's idea of the circle.
+let grace = null;
+let graceRoster = null;
+let gracePoller = null;
+let graceTimer = 0;
+
 // The RAM-only retry line for bye, checkin and SOS: the three one-shot
 // messages whose silent loss lies to the circle. It re-seals through
 // sendMsg on every attempt and holds no storage by construction; lockNow,
@@ -1355,6 +1371,10 @@ async function enterCircle() {
   startRekeyTimer();
   startInviteWatch();
   showMap();
+  // Last, and deliberately not awaited into the boot path: a resume needs the
+  // sender and the poller this call just armed, and nothing above it should
+  // wait on a geolocation prompt.
+  resumeShareIfArmed().catch((e) => window.__starlingErrors.push(`share resume: ${String(e)}`));
 }
 
 // The one call that actually destroys expired key material. Nothing else walks
@@ -1976,6 +1996,8 @@ async function doRekey({ removed = [], admit = null, reason = "manual" } = {}) {
 
   teardownNet();
   const prev = state.gen;
+  const prevPinned = state.pinned;
+  const prevRoster = state.genRoster;
   state.gen = next;
   state.pinned = nextPinned;
   state.genRoster = new Set(nextPinned.keys());
@@ -1989,7 +2011,12 @@ async function doRekey({ removed = [], admit = null, reason = "manual" } = {}) {
   lastSentPos = null;
   resetMemberAlerts();
   mapView?.clearAll();
-  await commitGeneration(prev);
+  // No window over a membership change: see startGraceWatch.
+  const watch =
+    removed.length || admit
+      ? null
+      : { by: state.identity.memberId, pinned: prevPinned, genRoster: prevRoster };
+  await commitGeneration(prev, watch);
   await enterCircle();
   void reason;
   // Keyed entries, not bare values: a member pinned from the network is stored
@@ -2006,10 +2033,14 @@ async function doRekey({ removed = [], admit = null, reason = "manual" } = {}) {
 // circle is, and says plainly that a restart would strand this device: the
 // alternative is to look fine now and be silently alone after a reboot. The
 // old chain keys are only destroyed once the new ones are durable.
-async function commitGeneration(prev) {
+async function commitGeneration(prev, watch) {
   try {
     await writeGenAtRest();
-    prev.ratchet.destroy();
+    if (watch) {
+      startGraceWatch(prev, watch);
+    } else {
+      prev.ratchet.destroy();
+    }
   } catch (e) {
     window.__starlingErrors.push(`rekey persist: ${String(e)}`);
     ui.toast(
@@ -2017,6 +2048,133 @@ async function commitGeneration(prev) {
       "warn",
     );
   }
+}
+
+// How long the generation just left stays readable. Long enough for a
+// competing re-key to arrive on the old channel through one normal poll and be
+// judged, short enough that the old chain keys are gone well before the
+// ratchet's own history window would have dropped them.
+const REKEY_GRACE_MS = 5 * 60 * 1000;
+
+// Of two re-keys for the same generation, the one from the lower member id
+// wins. Any deterministic rule works as long as every device applies the same
+// one; ids are already unique, already known to everybody who can read either
+// wrap, and need nothing from the wire.
+const winnerOf = (a, b) => (a < b ? a : b);
+
+// Keep the generation this device just left, and keep reading the channel it
+// left, so a re-key that raced ours is not lost with it.
+//
+// Only ever opened for a re-key that changed nobody's membership. A member who
+// has just been removed still holds the old generation's keys and is still in
+// the roster the window remembers, so a window opened over a removal would let
+// them post a competing re-key on the old channel and be adopted back into the
+// circle by their own removal. Losing the race and splitting is the bug being
+// fixed here; undoing a removal is worse than the bug.
+function startGraceWatch(prev, { by, pinned, genRoster }) {
+  endGraceWatch();
+  if (state.demo || state.locked || !state.identity) {
+    prev.ratchet.destroy();
+    return;
+  }
+  grace = { gen: prev, by, pinned, genRoster, until: Date.now() + REKEY_GRACE_MS };
+  // A read-only view of the roster as it was: the grace roster must not pin
+  // anyone into the live circle, and nothing it learns outlives the window.
+  const graceStore = {
+    get: (id) => grace?.pinned.get(id),
+    set: (id, rec) => grace?.pinned.set(id, canonPinned(rec)),
+    get size() {
+      return grace ? grace.pinned.size : 0;
+    },
+  };
+  graceRoster = createRoster({
+    channelId: prev.channelId,
+    ratchet: prev.ratchet,
+    selfId: state.identity.memberId,
+    pinned: graceStore,
+    onControl: onGraceControl,
+    onKeyChange: () => {},
+  });
+  gracePoller = createPoller({
+    channelId: prev.channelId,
+    roster: graceRoster,
+    ratchet: prev.ratchet,
+    onChange: () => {},
+    onStatus: () => {},
+    onRetired: () => endGraceWatch(),
+  });
+  gracePoller.start();
+  graceTimer = setTimeout(endGraceWatch, REKEY_GRACE_MS);
+}
+
+function endGraceWatch() {
+  clearTimeout(graceTimer);
+  graceTimer = 0;
+  gracePoller?.stop();
+  gracePoller = null;
+  graceRoster = null;
+  if (grace) {
+    grace.gen.ratchet.destroy();
+    grace = null;
+  }
+}
+
+// A re-key arriving on the channel this device has already left. It is only
+// ever one thing: somebody who was working from the same generation rotated at
+// the same moment we did. Both are valid, so the tie-break decides, and the
+// loser moves rather than sitting alone on a generation nobody else is on.
+async function onGraceControl(senderId, msg, epoch) {
+  if (!grace || !state.gen || state.locked) return;
+  if (Date.now() > grace.until) return;
+  if (circleControl(msg) !== "rekey") return;
+  if (msg.to !== state.identity.memberId) return;
+  // The same bar the live channel sets: a generation only moves for a member
+  // it started with, never for a key that arrived with the message.
+  if (!grace.genRoster.has(senderId) || !grace.pinned.has(senderId)) {
+    window.__starlingErrors.push("rekey from an unpinned member on the old channel: dropped");
+    return;
+  }
+  if (senderId === grace.by) return; // our own wrap coming back to us
+  const applied = await applyRekey({ identity: state.identity, gen: grace.gen, msg, epoch, senderId });
+  if (!applied) return;
+  // A re-key that takes somebody out beats one that does not, whatever the ids
+  // say. Otherwise a removal that lost a coin toss would be dropped on the
+  // floor and the member it removed would stay in half the circle. Anyone who
+  // can send this could have removed the same member on the live channel a
+  // second earlier, so it is no new power.
+  if (!applied.removed.length && winnerOf(senderId, grace.by) !== senderId) {
+    zero(applied.seed);
+    return; // ours won, stay put
+  }
+  await withCircleGuardWaiting(() => adoptOverLoser(applied, senderId));
+}
+
+// Rewind to the generation both rotators worked from, then take the winner's
+// re-key through the ordinary path. Starting anywhere else would run the
+// roster maths against the loser's idea of the circle rather than the one the
+// winner wrapped to.
+async function adoptOverLoser(applied, senderId) {
+  if (!grace || !state.gen || state.locked) {
+    zero(applied.seed);
+    return false;
+  }
+  const losing = state.gen;
+  const held = grace;
+  // The watch is over either way: its generation becomes the live one for the
+  // length of the adoption, and adoptRekey opens a fresh window of its own.
+  clearTimeout(graceTimer);
+  graceTimer = 0;
+  gracePoller?.stop();
+  gracePoller = null;
+  graceRoster = null;
+  grace = null;
+  teardownNet();
+  state.gen = held.gen;
+  state.pinned = held.pinned;
+  state.genRoster = held.genRoster;
+  losing.ratchet.destroy();
+  lastSentPos = null;
+  return adoptRekey(applied, senderId);
 }
 
 // Apply a re-key somebody else signed. The generation is sound whatever the
@@ -2060,6 +2218,8 @@ async function adoptRekey(applied, senderId) {
 
   teardownNet();
   const prev = state.gen;
+  const prevPinned = state.pinned;
+  const prevRoster = state.genRoster;
   state.gen = next;
   state.pinned = nextPinned;
   state.genRoster = new Set(nextPinned.keys());
@@ -2074,7 +2234,13 @@ async function adoptRekey(applied, senderId) {
   lastSentPos = null;
   resetMemberAlerts();
   mapView?.clearAll();
-  await commitGeneration(prev);
+  // Same bar as the rotator's side, plus one: a roster this device does not
+  // agree with is a membership question the window must not answer by itself.
+  const watch =
+    applied.removed.length || !agrees
+      ? null
+      : { by: senderId, pinned: prevPinned, genRoster: prevRoster };
+  await commitGeneration(prev, watch);
   await enterCircle();
   if (removedNames.length === 1) {
     ui.toast(t("{who} removed {gone}.", { who: senderName, gone: removedNames[0] }));
@@ -2751,6 +2917,10 @@ function lockNow() {
   // The retry line holds nothing across a lock: what a locked device must
   // not act on, it forgets.
   outbox.clear();
+  // Before the pollers, for the same reason the vault key goes: a generation
+  // being held open for a re-key race is chain keys, and a locked device holds
+  // none.
+  endGraceWatch();
   poller?.stop();
   poller = null;
   sender?.cancel?.();
@@ -3877,6 +4047,10 @@ function awaitBye(bye, ms = 1500) {
 // Tear down everything talking to the current channel, exactly as rotation
 // does; nothing may land on the old channel after a switch.
 function teardownNet() {
+  // The window belongs to the generation this device is leaving. Moving again,
+  // locking, switching circles or losing the chain all end it, and the old
+  // keys go with it.
+  endGraceWatch();
   poller?.stop();
   poller = null;
   sender?.cancel();
@@ -3889,6 +4063,9 @@ function teardownNet() {
 }
 
 function applyActive(c) {
+  // A circle switch leaves nothing of the old one behind, the held generation
+  // included.
+  endGraceWatch();
   state.gen?.ratchet.destroy();
   state.identity = c.identity;
   state.gen = restoreGeneration(c, c.secret);
@@ -4340,6 +4517,12 @@ async function setSharing(on) {
     stopGeo = startWatch(onFix, onGeoError);
     // startWatch can report an error synchronously and turn sharing back off.
     if (state.sharing) {
+      // Written down so a share that dies with the process can come back.
+      // Swiping the app away kills the page that seals every position, so the
+      // service ends the share; without this record the app reopened with
+      // sharing quietly off, which is what two people reported from four
+      // phones. Only the fact and the window go down, never a position.
+      await armShare();
       shareTimer = setInterval(() => sendLoc(true), SHARE_INTERVAL_MS);
       // Where the platform gives a web app no background execution at all,
       // sharing only runs while the screen is on and the app is in front.
@@ -4351,6 +4534,10 @@ async function setSharing(on) {
     state.sharing = false;
     state.sosActive = false;
     state.geoFailed = false;
+    // This path is every deliberate end: the toggle, the notification's Stop,
+    // the timer, a circle switch, a lock. None of them should come back by
+    // themselves on the next open.
+    await disarmShare();
     // Stopping by hand also ends the countdown; a timer must never outlive
     // the share it was counting for.
     clearTimeout(shareDeadlineTimer);
@@ -4376,6 +4563,78 @@ async function setSharing(on) {
     return bye;
   }
   render();
+}
+
+// The share survives the process, the way the people using it expect.
+//
+// Sharing itself is RAM: state.sharing, the poll timer and the geolocation
+// watch all die with the page. That is why swiping the app away ends a share,
+// and why reopening used to show sharing off with no way back except turning
+// it on again. This records that a share was running, and what was left of its
+// timer, so the next open can put it back.
+//
+// It holds no position and no key, only that sharing was on and how long it
+// had left, which is the same class of fact the wrapper already writes when a
+// share ends. A share the person ended themselves is never recorded.
+const SHARE_ARMED = "shareArmed";
+
+async function armShare() {
+  try {
+    await dbSet(SHARE_ARMED, {
+      at: Date.now(),
+      windowMs: shareWindowMs || 0,
+      deadline: shareDeadline || 0,
+    });
+  } catch (e) {
+    // A share that cannot be written down still runs; it just will not come
+    // back by itself, which is the behaviour this replaces.
+    window.__starlingErrors.push(`share arm: ${String(e)}`);
+  }
+}
+
+async function disarmShare() {
+  try {
+    await dbDel(SHARE_ARMED);
+  } catch (e) {
+    window.__starlingErrors.push(`share disarm: ${String(e)}`);
+  }
+}
+
+// Called once per process, at the end of entering a circle, which is also
+// where an unlock lands: a locked device holds no keys, so a share must not
+// come back before the passcode does.
+let shareResumeTried = false;
+
+async function resumeShareIfArmed() {
+  if (shareResumeTried) return false;
+  shareResumeTried = true;
+  if (state.demo || state.locked || state.sharing || !state.gen || !sender) return false;
+  let armed = null;
+  try {
+    armed = await dbGet(SHARE_ARMED);
+  } catch {
+    return false;
+  }
+  if (!armed) return false;
+  // The wrapper says how the last share ended. A person who pressed Stop on
+  // the notification meant it, so that is not resumed; a swipe, a reboot or
+  // the OS reclaiming the process is not a decision and is.
+  if (state.stopRecord?.route === "notif") {
+    await disarmShare();
+    return false;
+  }
+  // A window that already ran out while the app was closed is a share that
+  // was supposed to be over.
+  if (armed.deadline && Date.now() >= armed.deadline) {
+    await disarmShare();
+    return false;
+  }
+  await setSharing(true);
+  if (!state.sharing) return false; // permission gone, startWatch refused
+  if (armed.deadline) setShareWindow(Math.max(1000, armed.deadline - Date.now()));
+  ui.toast(t("Sharing was on when the app closed, so it is back on."));
+  render();
+  return true;
 }
 
 // A share that ends by itself. RAM only, like sharing itself: neither
@@ -5147,6 +5406,11 @@ if (debugHooks()) window.__starlingInternals = {
   notifyEvent,
   panic,
   setSharing,
+  setupNet,
+  resumeShareIfArmed,
+  resetShareResumeGuard: () => {
+    shareResumeTried = false;
+  },
 };
 
 // ----------------------------------------------------------------- boot
@@ -5209,6 +5473,26 @@ async function boot() {
     $("#screen-oldweb").hidden = false;
     $("#screen-onboarding").hidden = true;
     return;
+  }
+
+  // A stop that happened outside the page (notification Stop, task swipe)
+  // while nobody was here to see it. The card stays up until dismissed, so a
+  // reopen that misses this render still finds it on the next one.
+  //
+  // Read here rather than after the circle is entered: resumeShareIfArmed
+  // asks whether the last share was ended by a person or by the process
+  // dying, and it runs at the end of entering a circle, so the answer has to
+  // be in hand before that.
+  if (isWrapped()) {
+    try {
+      const raw = native()?.readStopRecord?.();
+      if (raw) {
+        const rec = JSON.parse(raw);
+        if (rec && (rec.route === "notif" || rec.route === "swipe")) state.stopRecord = rec;
+      }
+    } catch {
+      // a malformed native record is not worth failing boot over
+    }
   }
 
   const params = new URLSearchParams(location.search);
@@ -5453,21 +5737,6 @@ async function boot() {
     if (!state.locked) {
       if (params.get("demo") === "1") startDemo();
       else if (invite) promptJoin(invite);
-    }
-  }
-
-  // A stop that happened outside the page (notification Stop, task swipe)
-  // while nobody was here to see it. The card stays up until dismissed, so a
-  // reopen that misses this render still finds it on the next one.
-  if (isWrapped()) {
-    try {
-      const raw = native()?.readStopRecord?.();
-      if (raw) {
-        const rec = JSON.parse(raw);
-        if (rec && (rec.route === "notif" || rec.route === "swipe")) state.stopRecord = rec;
-      }
-    } catch {
-      // a malformed native record is not worth failing boot over
     }
   }
 
