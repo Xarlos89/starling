@@ -123,6 +123,23 @@ async function bootAndRead(c, { wrapper }) {
   })()`);
 }
 
+async function readCredit(c) {
+  await c.evalJs(`document.querySelector('[data-testid="onboarding-demo"]').click()`);
+  await waitFor(() => c.evalJs("window.__starlingApi.state.demo === true"), "demo running");
+  await c.evalJs(`document.querySelector('[data-testid="settings-open"]').click()`);
+  return waitFor(
+    () => c.evalJs(`(() => {
+      const p = document.querySelector('[data-testid="about-credit"]');
+      if (!p) return null;
+      return {
+        text: p.textContent,
+        links: [...p.querySelectorAll("a")].map((a) => [a.textContent, a.getAttribute("href"), a.target, a.rel].join(" ")),
+      };
+    })()`),
+    "the credit line in Settings",
+  );
+}
+
 async function main() {
   const profile = mkdtempSync(path.join(tmpdir(), "starling-wrapper-e2e-"));
   const server = spawn("node", [path.join(ROOT, "test", "serve_local.mjs"), String(HTTP_PORT)], {
@@ -166,6 +183,14 @@ async function main() {
     check("wrapper: console clean", w.errs.length === 0, JSON.stringify(w.errs));
     const shot = await wrap.send("Page.captureScreenshot", { format: "png" });
     writeFileSync(path.join(SHOTS, "22-wrapper-start.png"), Buffer.from(shot.result.data, "base64"));
+    const credit = await readCredit(wrap);
+    check("wrapper: Settings says who made it", credit.text.startsWith("Made by Munzzyy"), credit.text);
+    check(
+      "wrapper: the credit links leave the app instead of navigating it",
+      credit.links.join("|") ===
+        "Munzzyy https://github.com/munzzyy _blank noopener noreferrer|Source code https://github.com/munzzyy/starling _blank noopener noreferrer",
+      credit.links.join("|"),
+    );
     wrap.close();
 
     const web = await newTab();
@@ -218,6 +243,8 @@ async function main() {
     }))()`);
     check("es: document language follows the system", esState.lang === "es", esState.lang);
     check("es: the start screen speaks Spanish", esState.create === "Crear un círculo" && esState.tagline === "Tu gente, en tu mapa. Nadie más.", JSON.stringify([esState.create, esState.tagline]));
+    const esCredit = await readCredit(esTab);
+    check("es: the credit line is translated", esCredit.text === "Hecho por Munzzyy \u00b7 Código fuente", esCredit.text);
     check("es: console clean", esState.errs.length === 0, JSON.stringify(esState.errs));
     esTab.close();
   } finally {

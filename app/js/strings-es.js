@@ -481,4 +481,6 @@ export const es = {
   "Closing the app stops a share again.": "Cerrar la app vuelve a detener el compartir.",
   "Could not change that setting.": "No se pudo cambiar ese ajuste.",
   "Sharing was stopped from the notification.": "Se detuvo el compartir desde la notificación.",
+  "Made by {name}": "Hecho por {name}",
+  "Source code": "Código fuente",
 };

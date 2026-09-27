@@ -415,6 +415,36 @@ a.land-download {
   gap: 18px;
 }
 
+.land-more {
+  max-width: 34rem;
+  margin: 22px auto 0;
+  line-height: 1.5;
+}
+
+.land-more-title {
+  margin: 0 0 8px;
+  font-size: 0.7812rem;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.land-more-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.land-footer .land-more p {
+  margin: 10px 0 0;
+}
+
+.land-footer .land-more a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 /* --------------------------------------------------------------- buttons */
 
 .btn {
@@ -1953,6 +1983,24 @@ a.land-download {
   margin: 0;
   font-size: 0.875rem;
   font-weight: 700;
+}
+
+.about-credit {
+  margin: 4px 0 0;
+  font-size: 0.8125rem;
+  color: var(--ink-2);
+}
+
+.about-credit a {
+  display: inline-block;
+  padding: 3px 0;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+:root[data-theme="light"] .about-credit a {
+  color: #0f766e;
 }
 
 .danger-zone {

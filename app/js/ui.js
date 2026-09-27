@@ -12,6 +12,8 @@ import { native } from "./env.js";
 import { PLACE_RADII, MAX_PLACES, MAX_NAME_LEN } from "./places.js";
 import { VERSION } from "./version.js";
 
+const AUTHOR = { name: "Munzzyy", url: "https://github.com/munzzyy" };
+
 export const $ = (sel, root = document) => root.querySelector(sel);
 
 // The translation chokepoint: every plain English literal handed to el()
@@ -2140,8 +2142,27 @@ export function openSettingsSheet({ api, values, demo, tor, keepSharing, lock, l
 
   // About
   const gAbout = group("About");
+  const outLink = (text, href) => {
+    const a = document.createElement("a");
+    a.textContent = text;
+    a.href = href;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    return a;
+  };
+  const credit = el("p", "about-credit");
+  credit.dataset.testid = "about-credit";
+  const [madeBy, madeAfter = ""] = t("Made by {name}").split("{name}");
+  credit.append(
+    madeBy,
+    outLink(AUTHOR.name, AUTHOR.url),
+    madeAfter,
+    " \u00b7 ",
+    outLink(t("Source code"), "https://github.com/munzzyy/starling"),
+  );
   gAbout.append(
     el("p", "about-version", `Starling ${VERSION}`),
+    credit,
     el("p", "ov-note", "Your positions are encrypted on this device with a key only your circle holds. There are no accounts, no phone numbers, and no server that can read where you are. Sharing is off until you turn it on, and stopping is one tap."),
     el("p", "ov-note", "The relay that passes your updates along stores only encrypted data it cannot read, and deletes it after 24 hours. The protocol is open, so anyone can check these claims against the code."),
   );
