@@ -4317,6 +4317,16 @@ async function openSettings() {
       tor = null;
     }
   }
+  // Only wrappers new enough to hold the page open past the window offer this;
+  // on an older one the switch would be a promise nothing keeps.
+  let keepSharing = null;
+  if (n?.setKeepSharing) {
+    try {
+      keepSharing = { enabled: !!n.keepSharing() };
+    } catch {
+      keepSharing = null;
+    }
+  }
   keepLive((done) =>
     ui.openSettingsSheet({
       api,
@@ -4334,6 +4344,7 @@ async function openSettings() {
       },
       demo: state.demo,
       tor,
+      keepSharing,
       lock: {
         enabled: !!state.lock?.enabled,
         hasBio: !!state.lock?.bio,
@@ -4394,6 +4405,20 @@ async function onSettingChange(key, value) {
       native()?.setTor(!!value);
     } catch {
       ui.toast("Could not change the Orbot setting.", "warn");
+    }
+  } else if (key === "keepSharing") {
+    // The wrapper is the one that has to know, and it has to know before a
+    // task removal rather than at the moment of one, so this is the whole
+    // change: no page state, nothing at rest here.
+    try {
+      native()?.setKeepSharing(!!value);
+      ui.toast(
+        value
+          ? t("Closing the app will not stop a share now.")
+          : t("Closing the app stops a share again."),
+      );
+    } catch {
+      ui.toast(t("Could not change that setting."), "warn");
     }
   } else if (key === "name" || key === "emoji") {
     state.profile = { ...(state.profile || {}), [key]: value };
@@ -4536,11 +4561,13 @@ async function setSharing(on) {
     state.sharing = false;
     state.sosActive = false;
     state.geoFailed = false;
-    // This path is every deliberate end: the toggle, the notification's Stop,
-    // the timer, a circle switch, a lock. None of them should come back by
-    // themselves on the next open.
-    await disarmShare();
     shareResumed = false;
+    // Everything that actually stops something happens before the first await.
+    // With the app closed and the page running behind the share service, the
+    // page is hidden, and a hidden page's timers and microtask turnaround are
+    // throttled by the renderer: a storage write awaited here held the location
+    // watch and the send timer up for as long as the renderer felt like it.
+    //
     // Stopping by hand also ends the countdown; a timer must never outlive
     // the share it was counting for.
     clearTimeout(shareDeadlineTimer);
@@ -4552,6 +4579,10 @@ async function setSharing(on) {
     stopGeo = null;
     stopForeground();
     lastSentPos = null;
+    // This path is every deliberate end: the toggle, the notification's Stop,
+    // the timer, a circle switch, a lock. None of them should come back by
+    // themselves on the next open.
+    await disarmShare();
     // A caption is a claim about right now; it must not outlive the share.
     // Cleared BEFORE the bye goes out, so the bye itself carries no caption.
     clearCaption();
@@ -4666,18 +4697,27 @@ function setShareWindow(ms) {
   shareWindowMs = ms || 0;
   shareDeadline = ms ? Date.now() + ms : null;
   if (ms) {
-    shareDeadlineTimer = setTimeout(async () => {
-      shareDeadline = null;
-      shareDeadlineTimer = 0;
-      shareWindowMs = 0;
-      if (state.sharing) {
-        await setSharing(false);
-        ui.toast(t("Timed share ended. Your circle sees you stopped sharing."));
-      }
-      render();
-    }, ms);
+    shareDeadlineTimer = setTimeout(endTimedShare, ms);
   }
   render();
+}
+
+// The one way a timed share ends, whether the timer got there first or a fix
+// did. Safe to call twice: the second call finds no deadline and no share.
+function endTimedShare() {
+  if (!shareDeadline && !shareDeadlineTimer) return;
+  clearTimeout(shareDeadlineTimer);
+  shareDeadline = null;
+  shareDeadlineTimer = 0;
+  shareWindowMs = 0;
+  if (!state.sharing) {
+    render();
+    return;
+  }
+  setSharing(false)
+    .then(() => ui.toast(t("Timed share ended. Your circle sees you stopped sharing.")))
+    .catch((e) => window.__starlingErrors.push(`timed share end: ${String(e)}`))
+    .finally(render);
 }
 
 function onFix(fix) {
@@ -4685,6 +4725,15 @@ function onFix(fix) {
   state.me = fix;
   state.geoDenied = false;
   state.geoFailed = false;
+  // A timed share behind a closed app cannot be left to setTimeout: the page is
+  // hidden and hidden pages get their timers throttled. Each fix the service
+  // pushes runs JS whatever the renderer thinks about timers, so the deadline is
+  // enforced here as well, which keeps a share that was supposed to last twenty
+  // minutes from running until the person opens the app again.
+  if (state.sharing && shareDeadline && Date.now() >= shareDeadline) {
+    endTimedShare();
+    return;
+  }
   if (first && mapView) mapView.focusOn(fix.lat, fix.lon, 16, 0);
   // Steady sending posts on the interval alone. Posting again because you
   // moved is what tells the relay you moved: it cannot read a position, but a

@@ -3,6 +3,38 @@
 All notable changes to Starling are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
+## [0.13.0]
+
+Catalyze4 answered the question 0.12.1 asked. Resume on reopen is no use to
+somebody who closes every app when they are done with it and never goes back, so
+sharing now has the option of outliving the app.
+
+- **Keep sharing when the app is closed, off by default, in Settings under
+  Sharing.** Swiping Starling out of recents normally stops a share, because the
+  code that seals each position lives in the page and the page died with the
+  window. With the switch on, the page is held by the process rather than by the
+  window: the activity borrows it while there is a screen, a task removal takes
+  the screen and leaves the page, and the share carries on. No encryption moved
+  into the wrapper, so nothing changed about who can read a position.
+- **What it costs, said in the setting itself.** A phone you believe you closed
+  is still running Starling and still holding your circle's keys, and the app
+  lock cannot protect them until the share ends. That is why it is a switch and
+  not the new behaviour.
+- **The page is released the moment the share ends.** A share that ends with
+  nothing on screen takes the page down with it a few seconds later, once its
+  departure is on the relay, so keys never outlive the share that needed them.
+- **Nothing that has to happen on time rides on a page timer any more.** A page
+  with no window is hidden, and a hidden page gets its timers throttled: on a
+  real Android image a one second timer had not fired twenty seconds later, while
+  script the wrapper pushed in ran at once. So a share stops everything it is
+  running before it waits on storage, and a timed share ends off the next
+  position the service delivers rather than off its own countdown.
+
+Verified on an Android 16 image with the switch both ways, which is the only
+honest way to check this: with it on, the process, the service and the page all
+outlive the swipe and positions keep reaching the relay; with it off, the same
+swipe gesture ends the process and nothing more is sent.
+
 ## [0.12.1]
 
 Two people with four phones between them reported the same thing: sharing was

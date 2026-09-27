@@ -474,5 +474,11 @@ export const es = {
   "The app was closed while sharing was on, which stops it every time. If that was not you, check who has access to this phone.": "La app se cerró mientras compartías tu ubicación, y eso siempre la detiene. Si no fuiste tú, revisa quién tiene acceso a este teléfono.",
   "The app was closed while sharing was on, which stopped it, and opening it again put it back on. If closing it was not you, check who has access to this phone.":
     "La app se cerró mientras compartías tu ubicación, eso la detuvo, y al abrirla de nuevo volvió a activarse. Si no fuiste tú quien la cerró, revisa quién tiene acceso a este teléfono.",
+  "Keep sharing when the app is closed": "Seguir compartiendo cuando la app est\u00e1 cerrada",
+  "Sharing normally stops when you swipe Starling out of recents, because the keys that encrypt each position live in the app. With this on, Starling stays loaded in the background until the share ends, so closing it does not stop it. Anyone holding your unlocked phone can see the app is still running, and it is still holding your keys, so the app lock cannot protect them until the share ends.":
+    "Normalmente el compartir se detiene cuando quitas Starling de las apps recientes, porque las claves que cifran cada posici\u00f3n viven en la app. Con esto activado, Starling sigue cargada en segundo plano hasta que termina el compartir, as\u00ed que cerrarla no lo detiene. Cualquiera que tenga tu tel\u00e9fono desbloqueado puede ver que la app sigue funcionando, y sigue guardando tus claves, as\u00ed que el bloqueo de la app no puede protegerlas hasta que el compartir termine.",
+  "Closing the app will not stop a share now.": "Ahora cerrar la app no detendr\u00e1 el compartir.",
+  "Closing the app stops a share again.": "Cerrar la app vuelve a detener el compartir.",
+  "Could not change that setting.": "No se pudo cambiar ese ajuste.",
   "Sharing was stopped from the notification.": "Se detuvo el compartir desde la notificación.",
 };

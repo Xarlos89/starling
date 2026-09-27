@@ -11,14 +11,29 @@ import org.json.JSONObject
 // The page's window into the platform. Only bundled app code can call this:
 // the WebView never navigates off the asset origin, so every caller shipped
 // in the APK. Async answers travel through __starlingBio(token, payload).
-class StarlingBridge(private val activity: MainActivity) {
+//
+// Held on the application context, because the page outlives the activity
+// whenever a share is running with "keep sharing when the app is closed" on.
+// Anything that genuinely needs a window (a permission prompt, a biometric
+// sheet, a trip to system settings) goes through `activity` and does nothing
+// while there is none, which is the honest answer: the page only asks for
+// those from a screen somebody is looking at.
+class StarlingBridge(private val app: Context) {
+
+    @Volatile
+    var activity: MainActivity? = null
+
+    private fun ui(body: (MainActivity) -> Unit) {
+        val a = activity ?: return
+        a.runOnUiThread { body(a) }
+    }
 
     @JavascriptInterface
     fun platform(): String = "android"
 
     @JavascriptInterface
     fun version(): String = runCatching {
-        activity.packageManager.getPackageInfo(activity.packageName, 0).versionName
+        app.packageManager.getPackageInfo(app.packageName, 0).versionName
     }.getOrNull() ?: "unknown"
 
     // ---------------------------------------------------------------- events
@@ -31,16 +46,14 @@ class StarlingBridge(private val activity: MainActivity) {
     // to its own channel so it sounds different from routine chatter.
     @JavascriptInterface
     fun notify(title: String, body: String, tag: String, urgent: Boolean) {
-        activity.runOnUiThread {
-            activity.postEventNotification(title.take(80), body.take(160), tag.take(64), urgent)
-        }
+        Events.post(app, title.take(80), body.take(160), tag.take(64), urgent)
     }
 
     // Take a posted event notification back down (an SOS that cleared while
     // the app was open would otherwise stand on the lock screen forever).
     @JavascriptInterface
     fun cancelNotify(tag: String) {
-        activity.runOnUiThread { activity.cancelEventNotification(tag.take(64)) }
+        Events.cancel(app, tag.take(64))
     }
 
     // ----------------------------------------------------- share stop trace
@@ -53,7 +66,7 @@ class StarlingBridge(private val activity: MainActivity) {
     // acknowledged and clears it.
     @JavascriptInterface
     fun readStopRecord(): String? {
-        val prefs = activity.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE)
+        val prefs = app.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE)
         val route = prefs.getString(MainActivity.PREF_STOP_ROUTE, null) ?: return null
         val at = prefs.getLong(MainActivity.PREF_STOP_TS, 0L)
         return JSONObject().put("route", route).put("at", at).toString()
@@ -61,7 +74,7 @@ class StarlingBridge(private val activity: MainActivity) {
 
     @JavascriptInterface
     fun clearStopRecord() {
-        activity.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE).edit()
+        app.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE).edit()
             .remove(MainActivity.PREF_STOP_ROUTE)
             .remove(MainActivity.PREF_STOP_TS)
             .apply()
@@ -72,7 +85,7 @@ class StarlingBridge(private val activity: MainActivity) {
     // notification is for. No-op where already granted or below API 33.
     @JavascriptInterface
     fun ensureNotifyPermission() {
-        activity.runOnUiThread { activity.requestNotifyPermissionIfNeeded() }
+        ui { it.requestNotifyPermissionIfNeeded() }
     }
 
     // The full-device panic wipe: Keystore wrap key, notification channels,
@@ -81,19 +94,22 @@ class StarlingBridge(private val activity: MainActivity) {
     // parallel as the fallback for wrappers that predate this method.
     @JavascriptInterface
     fun panicWipe() {
-        activity.runOnUiThread { Wipe.everything(activity) }
+        // The page is going with everything else, so it stops being a place
+        // keys can live before clearApplicationUserData kills the process.
+        PageHost.destroy()
+        Wipe.everything(app)
     }
 
     // Open this app's system settings page, for the moment a permission was
     // denied and the in-app prompt can no longer be shown again.
     @JavascriptInterface
     fun openAppSettings() {
-        activity.runOnUiThread {
+        ui { a ->
             runCatching {
-                activity.startActivity(
+                a.startActivity(
                     android.content.Intent(
                         android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                        android.net.Uri.parse("package:" + activity.packageName),
+                        android.net.Uri.parse("package:" + a.packageName),
                     ),
                 )
             }
@@ -108,8 +124,8 @@ class StarlingBridge(private val activity: MainActivity) {
     // without focus Android answers null and this quietly does nothing.
     @JavascriptInterface
     fun clearClipboardIf(expected: String) {
-        activity.runOnUiThread {
-            val cm = activity.getSystemService(android.content.ClipboardManager::class.java) ?: return@runOnUiThread
+        ui { a ->
+            val cm = a.getSystemService(android.content.ClipboardManager::class.java) ?: return@ui
             val current = cm.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.text?.toString()
             if (current == expected) cm.clearPrimaryClip()
         }
@@ -119,56 +135,74 @@ class StarlingBridge(private val activity: MainActivity) {
 
     @JavascriptInterface
     fun startLocation() {
-        activity.runOnUiThread { activity.startShareFlow() }
+        ui { it.startShareFlow() }
     }
 
+    // Stopping needs no window: a timed share can run out, or the person can
+    // stop from the notification, with nothing on screen.
     @JavascriptInterface
     fun stopLocation() {
-        activity.runOnUiThread { activity.stopShareFlow() }
+        LocationService.stop(app)
     }
+
+    // ------------------------------------------------- keep sharing when closed
+
+    // Off by default, and deliberately not something the page decides on its
+    // own: with it on, closing the app leaves this process holding the circle's
+    // keys until the share ends. Kotlin reads the switch straight from prefs,
+    // because the moment it matters is a task removal, when asking the page
+    // anything is already too late.
+    @JavascriptInterface
+    fun keepSharing(): Boolean = PageHost.keepSharing(app)
+
+    @JavascriptInterface
+    fun setKeepSharing(on: Boolean) = PageHost.setKeepSharing(app, on)
 
     // ------------------------------------------------------------------ tor
 
     @JavascriptInterface
-    fun torSupported(): Boolean = activity.torSupported()
+    fun torSupported(): Boolean =
+        androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.PROXY_OVERRIDE)
 
     @JavascriptInterface
-    fun torEnabled(): Boolean = activity.torEnabled()
+    fun torEnabled(): Boolean =
+        app.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE)
+            .getBoolean(MainActivity.PREF_TOR, false)
 
     @JavascriptInterface
     fun setTor(on: Boolean) {
-        activity.runOnUiThread { activity.setTorEnabled(on) }
+        ui { it.setTorEnabled(on) }
     }
 
     // ------------------------------------------------------------ biometric
 
     @JavascriptInterface
     fun bioSupported(): Boolean =
-        BiometricManager.from(activity).canAuthenticate(BIOMETRIC_STRONG) ==
+        BiometricManager.from(app).canAuthenticate(BIOMETRIC_STRONG) ==
             BiometricManager.BIOMETRIC_SUCCESS
 
     // Wrap the vault key K under a Keystore key the OS only unseals after a
     // biometric prompt. Returns {"nonce","ct"} as b64url, or null.
     @JavascriptInterface
     fun bioWrap(vaultB64: String, token: String) {
-        activity.runOnUiThread {
+        ui { a ->
             val vault = KeystoreVault.b64decode(vaultB64)
             if (vault == null || vault.size != 32) {
                 vault?.fill(0)
                 reply(token, null)
-                return@runOnUiThread
+                return@ui
             }
             val cipher = KeystoreVault.encryptCipher()
             if (cipher == null) {
                 vault.fill(0)
                 reply(token, null)
-                return@runOnUiThread
+                return@ui
             }
             // The zero runs on every exit from the prompt, dismissal and
             // error included, not only on success. (The b64 String argument
             // itself is immutable and beyond reach; this scrubs the copy this
             // side controls.)
-            prompt(cipher, R.string.bio_wrap_title) { authed ->
+            prompt(a, cipher, R.string.bio_wrap_title) { authed ->
                 val out = authed?.let {
                     runCatching {
                         val ct = it.doFinal(vault)
@@ -188,19 +222,19 @@ class StarlingBridge(private val activity: MainActivity) {
     // prompt, invalidated key (new biometric enrollment), tampered record.
     @JavascriptInterface
     fun bioUnwrap(nonceB64: String, ctB64: String, token: String) {
-        activity.runOnUiThread {
+        ui { a ->
             val nonce = KeystoreVault.b64decode(nonceB64)
             val ct = KeystoreVault.b64decode(ctB64)
             if (nonce == null || ct == null) {
                 reply(token, null)
-                return@runOnUiThread
+                return@ui
             }
             val cipher = KeystoreVault.decryptCipher(nonce)
             if (cipher == null) {
                 reply(token, null)
-                return@runOnUiThread
+                return@ui
             }
-            prompt(cipher, R.string.bio_unwrap_title) { authed ->
+            prompt(a, cipher, R.string.bio_unwrap_title) { authed ->
                 reply(
                     token,
                     authed?.let { runCatching { KeystoreVault.b64encode(it.doFinal(ct)) }.getOrNull() },
@@ -214,18 +248,19 @@ class StarlingBridge(private val activity: MainActivity) {
     // runs exactly once, with null on those failure exits, so callers have a
     // single place to scrub secrets and answer the page.
     private fun prompt(
+        a: MainActivity,
         cipher: javax.crypto.Cipher,
         titleRes: Int,
         done: (javax.crypto.Cipher?) -> Unit,
     ) {
         val info = BiometricPrompt.PromptInfo.Builder()
-            .setTitle(activity.getString(titleRes))
-            .setNegativeButtonText(activity.getString(R.string.bio_cancel))
+            .setTitle(a.getString(titleRes))
+            .setNegativeButtonText(a.getString(R.string.bio_cancel))
             .setAllowedAuthenticators(BIOMETRIC_STRONG)
             .build()
         val prompt = BiometricPrompt(
-            activity,
-            ContextCompat.getMainExecutor(activity),
+            a,
+            ContextCompat.getMainExecutor(a),
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                     done(result.cryptoObject?.cipher)
@@ -239,12 +274,5 @@ class StarlingBridge(private val activity: MainActivity) {
         prompt.authenticate(info, BiometricPrompt.CryptoObject(cipher))
     }
 
-    private fun reply(token: String, payload: String?) {
-        val t = JSONObject.quote(token)
-        val p = if (payload == null) "null" else JSONObject.quote(payload)
-        activity.webView.evaluateJavascript(
-            "globalThis.__starlingBio && __starlingBio($t, $p)",
-            null,
-        )
-    }
+    private fun reply(token: String, payload: String?) = PageHost.bioReply(token, payload)
 }

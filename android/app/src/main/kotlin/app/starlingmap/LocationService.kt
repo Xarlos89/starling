@@ -20,8 +20,12 @@ import org.json.JSONObject
 // Keeps location flowing while the screen is off or the app is backgrounded.
 // Runs only between an explicit start from the page (user turned sharing on,
 // app in the foreground, permission already granted) and the matching stop.
-// While-in-use only: the app never requests background location permission,
-// and swiping the task away ends the share instead of tracking silently.
+// While-in-use only: the app never requests background location permission.
+//
+// Swiping the task away ends the share, unless the person turned on "keep
+// sharing when the app is closed". With that on, PageHost holds the page past
+// the window, so there is still something alive to seal each position, and
+// this service stays up and keeps feeding it.
 class LocationService : Service(), LocationListener {
 
     companion object {
@@ -37,6 +41,12 @@ class LocationService : Service(), LocationListener {
         @Volatile
         var sink: ((String) -> Unit)? = null
 
+        // Read by PageHost to decide whether a page with no window still has a
+        // job. Set here rather than inferred from the notification, because the
+        // question gets asked during teardown.
+        @Volatile
+        var running = false
+
         fun start(ctx: Context) {
             ContextCompat.startForegroundService(ctx, Intent(ctx, LocationService::class.java))
         }
@@ -51,6 +61,7 @@ class LocationService : Service(), LocationListener {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        running = true
         if (intent?.action == ACTION_STOP) {
             // A user action, not a failure: the page turns sharing off cleanly.
             sink?.invoke(JSONObject().put("stopped", true).toString())
@@ -128,6 +139,13 @@ class LocationService : Service(), LocationListener {
     // service does. It always ended the share here; now it also says so,
     // because a share that ends in silence looks like a working one.
     override fun onTaskRemoved(rootIntent: Intent?) {
+        if (PageHost.keepSharing(this) && PageHost.alive) {
+            // The window is gone and the share is not. Nothing to write down
+            // and nothing to stop: the page is still here, still holding the
+            // keys, and the fixes below still reach it.
+            super.onTaskRemoved(rootIntent)
+            return
+        }
         postShareEnded("swipe")
         stopSelf()
         super.onTaskRemoved(rootIntent)
@@ -154,6 +172,10 @@ class LocationService : Service(), LocationListener {
     }
 
     override fun onDestroy() {
+        running = false
+        // A share that ends with nothing on screen takes the page with it. Not
+        // instantly: its stop path still has a departure to get onto the relay.
+        PageHost.releaseSoon()
         if (watching) {
             (getSystemService(LOCATION_SERVICE) as LocationManager).removeUpdates(this)
             watching = false

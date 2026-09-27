@@ -1643,7 +1643,7 @@ export function openPasscodeSheet({ title, intro, cta, confirm = false, current 
   return ov;
 }
 
-export function openSettingsSheet({ api, values, demo, tor, lock, lockActions, onChange, onMembers, onInvite, onPlaces, onPanic, onLeave, onExport, onClose }) {
+export function openSettingsSheet({ api, values, demo, tor, keepSharing, lock, lockActions, onChange, onMembers, onInvite, onPlaces, onPanic, onLeave, onExport, onClose }) {
   const ov = openOverlay({ title: "Settings", testid: "settings-sheet", className: "ov-settings", onClose });
   const b = ov.body;
 
@@ -1804,6 +1804,19 @@ export function openSettingsSheet({ api, values, demo, tor, lock, lockActions, o
       onChange: (v) => onChange("trail", v),
     }),
   );
+
+  // Wrapper only: on the web there is no process to hold open, and sharing is
+  // app-only anyway.
+  if (keepSharing) {
+    const row = switchRow({
+      label: "Keep sharing when the app is closed",
+      note: "Sharing normally stops when you swipe Starling out of recents, because the keys that encrypt each position live in the app. With this on, Starling stays loaded in the background until the share ends, so closing it does not stop it. Anyone holding your unlocked phone can see the app is still running, and it is still holding your keys, so the app lock cannot protect them until the share ends.",
+      value: keepSharing.enabled,
+      onChange: (v) => onChange("keepSharing", v),
+    });
+    row.dataset.testid = "settings-keep-sharing";
+    gShare.append(row);
+  }
 
   // Alerts
   const gAlerts = group("Places and alerts");
