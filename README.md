@@ -5,8 +5,11 @@ accounts, no phone numbers, and a relay that stores nothing it could ever read.
 
 [![CI](https://github.com/munzzyy/starling/actions/workflows/ci.yml/badge.svg)](https://github.com/munzzyy/starling/actions/workflows/ci.yml)
 
+[<img src="https://f-droid.org/badge/get-it-on.png" alt="Get it on F-Droid" height="80">](https://f-droid.org/packages/app.starlingmap/)
+
 **Live:** [starlingmap.app](https://starlingmap.app) ·
-grab the Android app there.
+grab the Android app there, from F-Droid, or from the
+[releases page](https://github.com/munzzyy/starling/releases).
 
 This document describes protocol v2: forward secrecy, post-compromise
 security, and cryptographic member removal. As of 0.5.0 it is wired end to
