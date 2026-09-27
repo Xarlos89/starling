@@ -10,6 +10,7 @@ import { HISTORY_CHOICES } from "./ratchet.js";
 import { t, LOCALE_CHOICES } from "./i18n.js";
 import { native } from "./env.js";
 import { PLACE_RADII, MAX_PLACES, MAX_NAME_LEN } from "./places.js";
+import { VERSION } from "./version.js";
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 
@@ -2140,7 +2141,7 @@ export function openSettingsSheet({ api, values, demo, tor, keepSharing, lock, l
   // About
   const gAbout = group("About");
   gAbout.append(
-    el("p", "about-version", "Starling 0.8.0"),
+    el("p", "about-version", `Starling ${VERSION}`),
     el("p", "ov-note", "Your positions are encrypted on this device with a key only your circle holds. There are no accounts, no phone numbers, and no server that can read where you are. Sharing is off until you turn it on, and stopping is one tap."),
     el("p", "ov-note", "The relay that passes your updates along stores only encrypted data it cannot read, and deletes it after 24 hours. The protocol is open, so anyone can check these claims against the code."),
   );

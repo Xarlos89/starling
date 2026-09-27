@@ -3,6 +3,13 @@
 All notable changes to Starling are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
+## [Unreleased]
+
+- **Settings shows the version you actually have.** The About line was typed in
+  by hand and had said 0.8.0 since 0.8.0, so every build after it looked out of
+  date (#7). It now reads one version file, and a test fails if that file, the
+  Android build and package.json ever disagree.
+
 ## [0.13.0]
 
 Catalyze4 answered the question 0.12.1 asked. Resume on reopen is no use to

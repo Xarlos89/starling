@@ -10,6 +10,7 @@ Run from the repo root:  python3 test/e2e_v2_ui.py
 Ports: 8931 (http), 2850/2851 (marionette). Everything started here is
 killed before exit.
 """
+import json
 import os
 import subprocess
 import sys
@@ -234,6 +235,9 @@ def main():
                  timeout=15, desc="A settings keys group")
         titles = q(a, "return [...document.querySelectorAll('.set-title')].map(function(n){return n.textContent});")
         check("settings has a Keys and history group", "Keys and history" in titles, repr(titles))
+        pkg = json.load(open(os.path.join(ROOT, "package.json")))["version"]
+        about = q(a, "var n = document.querySelector('.about-version'); return n && n.textContent;")
+        check("About shows the version that is installed", about == "Starling " + pkg, repr(about))
         hist = q(a, """
             var f = [...document.querySelectorAll('.field')].find(function (n) {
               var l = n.querySelector('.field-label');
