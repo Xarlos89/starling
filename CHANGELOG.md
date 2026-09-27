@@ -13,9 +13,10 @@ Website and listing only; nothing in the app's behaviour changed.
 - **The privacy policy describes v2.** It still said the circle secret rides in
   invite links, that the demo never touches the network, and that the passcode
   is stored. None of that is true of 0.13.1. The effective date moved with it.
-- **The privacy page is reachable again after visiting the site.** The service
-  worker answered every page with the cached landing, so the footer's Privacy
-  link showed the landing a second time.
+- **The privacy page and the APK download work again after visiting the
+  site.** The service worker answered every page with the cached landing, so
+  the footer's Privacy link showed the landing a second time and "Download the
+  APK" gave a returning visitor the landing instead of the file.
 - **Settings says who made the app**, with a link to the source.
 
 ## [0.13.1]
