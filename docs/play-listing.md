@@ -27,9 +27,10 @@ middle reading your position.
 
 END TO END ENCRYPTED
 Your location is encrypted on your device with AES-256-GCM under a key
-derived from a 32-byte secret that only exists in your invite link, in the
-part of the URL browsers never send to a server. The relay stores ciphertext
-it cannot read.
+only your circle's phones hold. It never travels in an invite link: an
+invite carries a one-time code, and a new member gets the circle's keys only
+after you compare a safety number with them and accept. The relay stores
+ciphertext it cannot read.
 
 NO ACCOUNTS, NO TRACKING
 No sign-up, no phone number, no email, no push tokens, no analytics, no

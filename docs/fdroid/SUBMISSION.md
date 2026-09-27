@@ -1,8 +1,9 @@
 # F-Droid submission runbook
 
-This is a runbook, not an action already taken. Filing the merge request is
-Cole's call. `docs/fdroid/app.starlingmap.yml` is a draft sitting in this
-repo until then; nothing here pushes it anywhere.
+Status: done. Starling has been on F-Droid since 2026-09-23
+(<https://f-droid.org/packages/app.starlingmap/>). The runbook below is how it
+got there and is kept for the record; the steps and version numbers in it are
+from the original submission.
 
 ## Preferred path: fdroiddata merge request
 

@@ -273,14 +273,16 @@ than Cloudflare can run their own relay; see the FAQ and
     are enumerated in "The iOS app's deltas" below; the largest is that
     background sharing does not exist, because iOS has no equivalent of the
     Android foreground service.
-14. **F-Droid has never actually built Starling.** Reproducible F-Droid
-    packaging is configured in an open merge request
-    (`docs/fdroid/app.starlingmap.yml`) that has not been merged. Until it
-    is, F-Droid is not a distribution channel for this app in any sense,
-    reproducible or otherwise: the only ways to get Starling today are the
-    GitHub release and the direct APK download at starlingmap.app. Anyone
-    telling you otherwise is wrong, and if this file says otherwise after
-    that MR merges, that is now the stale claim.
+14. **F-Droid ships the developer's APK, and trails a release.** Starling
+    has been on F-Droid since 2026-09-23 as a reproducible build: F-Droid
+    builds the tagged source itself, checks that the result matches the
+    APK published on GitHub, and then distributes that developer-signed
+    APK rather than one signed with its own key. That makes F-Droid an
+    independent check that the published APK comes from the published
+    source, and it means one signature across F-Droid, GitHub and
+    starlingmap.app. What it does not mean is that F-Droid has every
+    release the day it ships: its build cycle can trail a tag by days, and
+    a release it has not built yet is only on GitHub and the site.
 15. **A duress passcode's existence is visible in storage.** The unlock
     passcode's verifier is the GCM tag of a wrapped key, so it stores
     nothing that says "a passcode exists" beyond the lock itself. A duress
@@ -436,8 +438,10 @@ same trade.
 - **GitHub release and the direct APK at starlingmap.app.** Both work today
   and are signed with the same key (`AllowedAPKSigningKeys` in
   `docs/fdroid/app.starlingmap.yml`).
-- **F-Droid.** Not live. The submission is an open, unmerged merge request;
-  see "F-Droid has never actually built Starling" above.
+- **F-Droid.** Live since 2026-09-23 at
+  <https://f-droid.org/packages/app.starlingmap/>, shipping the same
+  developer-signed APK after a reproducible-build check; see "F-Droid ships
+  the developer's APK, and trails a release" above.
 - **Google Play.** In progress, not live as of this writing.
 - **iOS.** Build-from-source only: the wrapper in `ios/` compiles with Xcode
   and runs on your own device, re-signed every 7 days on a free Apple ID.

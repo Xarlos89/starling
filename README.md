@@ -11,7 +11,7 @@ grab the Android app there.
 This document describes protocol v2: forward secrecy, post-compromise
 security, and cryptographic member removal. As of 0.5.0 it is wired end to
 end, crypto core through relay through storage through UI, on both web and
-Android, and 500-plus unit tests plus five end to end suites
+Android, and 500-plus unit tests plus six end to end suites
 exercise it as a running app talking to a running relay. Nobody outside this
 project has independently reviewed any of it. See
 [docs/AUDIT.md](docs/AUDIT.md) for exactly what has and has not been
@@ -112,8 +112,9 @@ The `test/screenshots/` set is regenerated on every end to end run.
 ## Sharing model
 
 Sharing is off until you turn it on, and stopping posts a signed goodbye so
-your circle sees "stopped" instead of a stale dot. This is live-when-open
-sharing like Signal's, not an always-on tracker: when the OS suspends the tab,
+your circle sees "stopped" instead of a stale dot. Where the code runs as a
+plain page (the iOS build, or a local dev tab) it is live-when-open sharing
+like Signal's, not an always-on tracker: when the OS suspends the page,
 sharing pauses. That is the honest ceiling of the web platform, and the app
 says so instead of pretending otherwise.
 
@@ -126,6 +127,13 @@ going out. Since 0.12.0 the app writes down that a share was running and puts it
 back when you reopen it, saying so on screen. A share you ended yourself is
 never resumed, a timed share that ran out while the app was closed stays ended,
 and a locked phone resumes nothing until you unlock it.
+
+Since 0.13.0 there is also a switch, off by default, in Settings under
+Sharing: "Keep sharing when the app is closed". With it on, the page is held
+by the process instead of the window, so a swipe takes the screen and leaves
+the share running. The cost is spelled out in the setting: a phone you think
+you closed is still holding your circle's keys, and the app lock cannot cover
+them until the share ends.
 
 ## Run it
 
@@ -145,6 +153,7 @@ python3 test/e2e_v2_ui.py        # safety-number comparison, review/accept, re-k
 python3 test/e2e_lock.py         # the app-lock lifecycle, duress included
 python3 test/e2e_places.py       # places: save, arrive, rename, reload; the relay never sees one
 node test/e2e_wrapper.mjs        # the app-vs-website split and the demo scene
+node test/e2e_share_resume.mjs   # a share comes back after the app is closed and reopened
 ```
 
 The QR tests cross-check the encoder against the Python `qrcode` library when it
@@ -200,9 +209,10 @@ codes are correct by construction, not by eyeball.
 
 Being clear about the edges is part of the point.
 
-- **It is live-when-open, not an always-on tracker.** When the OS suspends the
-  tab, sharing pauses. A wake-lock toggle helps while the screen is on; true
-  background location needs a native app.
+- **Background sharing is Android only.** The Android app keeps sharing with
+  the screen off through a foreground service. The iOS build and a local dev
+  tab are live-when-open: when the OS suspends the page, sharing pauses. A
+  wake-lock toggle helps while the screen is on.
 - **The relay still sees metadata.** It cannot see your position or who you are,
   but it sees IP addresses, timing, and how many members a channel has. On top
   of a VPN or Tor this drops to the exit's IP. Firing an SOS is its own
@@ -242,11 +252,15 @@ Being clear about the edges is part of the point.
 
 ## Android
 
-A native Android app ships with every [release](https://github.com/munzzyy/starling/releases)
-and from [starlingmap.app](https://starlingmap.app). An F-Droid submission is
-an open, unmerged merge request, so F-Droid has not built or distributed
-Starling yet; Google Play is in progress and also not live. Today's only
-distribution is the GitHub release and the direct APK. It runs the same `app/` code
+A native Android app is on
+[F-Droid](https://f-droid.org/packages/app.starlingmap/), ships with every
+[release](https://github.com/munzzyy/starling/releases), and downloads straight
+from [starlingmap.app](https://starlingmap.app). F-Droid builds Starling
+from source, checks that its build matches the published APK, and then
+ships that same developer-signed APK, so all three routes carry one
+signature and you can move between them without reinstalling. F-Droid can
+trail a new release by a few days. Google Play is in progress and not live.
+It runs the same `app/` code
 inside a hand-written Kotlin WebView, and adds what the web platform cannot
 give it on its own: background sharing through a foreground service (with a
 persistent notification the whole time, so it is never silent about what it
@@ -254,7 +268,7 @@ is doing), fingerprint or face unlock through the Android Keystore in place
 of WebAuthn PRF, a PanicKit responder for panic-button apps like Ripple, and
 Orbot support. See [docs/ANDROID.md](docs/ANDROID.md) for building it,
 [docs/play-listing.md](docs/play-listing.md) for the Play Store listing, and
-[docs/fdroid/](docs/fdroid) for the F-Droid submission draft.
+[docs/fdroid/](docs/fdroid) for the F-Droid metadata.
 
 A signed APK ships with every [release](https://github.com/munzzyy/starling/releases),
 with a stable `starling.apk` name that Obtainium can track. The app has no
@@ -276,8 +290,7 @@ reason.
   language, and a test holds every catalog to full coverage. RTL layout
   polish lands with the first RTL translation. Native-speaker review of the
   shipped Spanish is wanted before anything else.
-- F-Droid and Google Play, both still not live; the F-Droid merge request is
-  open.
+- Google Play, still not live.
 - QR scan for safety numbers, alongside the tap-to-enlarge in-person compare
   that exists today.
 - Per-circle sharing settings (precision, cadence), and being visible to more
@@ -286,8 +299,8 @@ reason.
 - One-time guest links as short-lived side circles
 
 There is an iOS app now: a WKWebView wrapper around the same bundled app,
-in `ios/`, that holds a real circle. It is build-from-source only today - a
-Mac with Xcode, and a free Apple ID re-signs every 7 days - and background
+in `ios/`, that holds a real circle. It is build-from-source only today: a
+Mac with Xcode, and a free Apple ID re-signs every 7 days, and background
 sharing does not exist on it, because iOS offers no equivalent of the
 Android foreground service. [docs/IOS.md](docs/IOS.md) carries the full
 capability table and the build steps; TestFlight distribution waits on a

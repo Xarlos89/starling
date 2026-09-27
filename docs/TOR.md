@@ -39,8 +39,8 @@ packaging story were solved, the integration itself would be small.
 
 - **gpmaven kills the F-Droid MR.** F-Droid's inclusion policy doesn't
   accept prebuilt binaries from an arbitrary GitHub raw URL as a dependency
-  source. We have an open F-Droid submission (`docs/fdroid/SUBMISSION.md`).
-  Pulling in gpmaven ends that, full stop.
+  source. Starling is on F-Droid (`docs/fdroid/app.starlingmap.yml`).
+  Pulling in gpmaven would get it pulled from there, full stop.
 - **The one artifact that exists is stale where it matters.** 1.7.0.1 pins
   arti 1.7.0 / arti-client 0.36.0 from October 2025, nine minor releases
   behind the 2.5.1 line as of this writing. We'd be embedding an old Tor

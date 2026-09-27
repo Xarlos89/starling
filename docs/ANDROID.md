@@ -72,9 +72,10 @@ published release, run the build steps above, and diff your resulting
 unsigned APK against Cole's signed one after stripping the signature block
 (`apksigner` can extract the pre-signature APK, or use
 `unzip -l`/content hash comparison on everything outside `META-INF/`). This
-is the same process F-Droid's own reproducible-builds verification runs;
-see `docs/fdroid/SUBMISSION.md` for how that gets wired up formally once
-proven.
+is the same process F-Droid's own reproducible-builds verification runs,
+and it runs it on every Starling version it builds: the APK F-Droid ships
+is the developer-signed one, released only because F-Droid's own build
+matched it.
 
 ## PanicKit
 
@@ -150,9 +151,11 @@ first-class target rather than an afterthought:
 - The WebView requirement is satisfied by GrapheneOS's own Vanadium, which
   tracks current Chromium; there is nothing version-fragile in the app's use
   of WebCrypto, IndexedDB, or ES modules.
-- Install paths that do not touch Google: F-Droid (submission in progress),
-  or point Obtainium at the GitHub releases page; every release carries a
-  stable `starling.apk` asset name for that.
+- Install paths that do not touch Google: F-Droid
+  (<https://f-droid.org/packages/app.starlingmap/>, the same developer-signed
+  APK after its reproducible-build check), or point Obtainium at the GitHub
+  releases page; every release carries a stable `starling.apk` asset name
+  for that.
 - GrapheneOS's per-app Network and Sensors toggles degrade the app the way
   you would hope: no network means the poller backs off and the Off-grid
   basemap still renders; denying location just means nothing to share.

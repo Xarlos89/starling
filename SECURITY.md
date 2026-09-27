@@ -79,8 +79,8 @@ firing a beacon on the same IP as the circle channel, forward secrecy bounded
 by a device's retained history window rather than absolute, post-compromise
 security requiring an actual re-key rather than happening automatically, no
 cover traffic beyond a steady-cadence posting option, no post-quantum
-protection, the web delivery trust model (including why there is no iOS app
-and why F-Droid has not built this yet), passcode strength being the user's
+protection, the web delivery trust model (including why the hosted site will
+not open circles), passcode strength being the user's
 own, and the foreground-service notification being a required disclosure of
 active sharing. Reports that restate these are welcome as discussion but are
 not treated as new findings.

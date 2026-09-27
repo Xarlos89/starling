@@ -405,9 +405,9 @@
         <details class="lnd-faq-item">
           <summary>Can I run my own relay?</summary>
           <p>Yes. The relay is a small Cloudflare Worker and the setup is documented. Point the app
-            at your own instance and Munzzyy's relay never sees your traffic at all. See the
-            <a href="https://github.com/munzzyy/starling/blob/main/docs/PROTOCOL.md">protocol
-            docs</a> for how.</p>
+            at your own instance and Munzzyy's relay never sees your traffic at all. The
+            <a href="https://github.com/munzzyy/starling#deploy">deploy steps</a> come down to
+            one command.</p>
         </details>
         <details class="lnd-faq-item">
           <summary>What happens in an emergency?</summary>
@@ -419,7 +419,7 @@
         </details>
         <details class="lnd-faq-item">
           <summary>What does Starling not do?</summary>
-          <p>No iPhone app yet. No driving reports, speed alerts, or crash detection. No location
+          <p>No App Store iPhone app yet. No driving reports, speed alerts, or crash detection. No location
             history older than a day, on purpose. If those are the features you need most,
             Starling is not your app yet, and finding that out here beats finding it out after
             you switched.</p>
@@ -430,16 +430,22 @@
     <div class="land-card lnd-install-card web-only" id="landing-app">
       <h2 class="land-card-title">Get the Android app</h2>
       <p class="land-card-sub">Sharing keeps running with the screen off, your fingerprint opens
-        the app lock, and a panic wipe clears everything in one tap. No Google services inside.</p>
-      <a class="btn btn-primary land-download" data-testid="landing-download"
+        the app lock, and a panic wipe clears everything at once. No Google services inside.</p>
+      <a class="lnd-fdroid" data-testid="landing-fdroid"
+        href="https://f-droid.org/packages/app.starlingmap/"><img
+        src="icons/get-it-on-fdroid.png" alt="Get it on F-Droid" width="646" height="250"></a>
+      <p class="land-card-note lnd-fdroid-note">The easy way: F-Droid installs Starling and keeps it
+        updated. A new release can take a few days to reach it.</p>
+      <a class="btn btn-secondary land-download" data-testid="landing-download"
         href="/starling.apk">Download the APK</a>
       <p class="land-card-note">Served straight from this site; the same file is on the
         <a href="https://github.com/munzzyy/starling/releases">releases page</a> with its
         checksum, so you can verify what you installed.</p>
       <p class="land-card-note">On GrapheneOS or any de-googled phone, add the releases page to
         <a href="https://obtainium.imranr.dev/">Obtainium</a> and it updates itself.</p>
+      <p class="land-card-note">F-Droid ships the same signed APK as GitHub and this site, so
+        you can switch where updates come from without reinstalling.</p>
       <ul class="lnd-store-chips">
-        <li class="lnd-chip">F-Droid: in review</li>
         <li class="lnd-chip">Google Play: coming</li>
       </ul>
       <p class="land-card-note">Not ready to install anything yet? <a href="?demo=1">Watch

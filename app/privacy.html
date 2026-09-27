@@ -14,7 +14,7 @@
 <body>
 
 <h1>Privacy policy</h1>
-<p class="effective">Effective 2026-08-31</p>
+<p class="effective">Effective 2026-09-27</p>
 
 <p>Starling is a location sharing app built so that the people running it cannot
 see your location, and there is nothing to sell because there is nothing
@@ -28,10 +28,11 @@ random secret on your device; nothing about you is attached to it.</p>
 
 <h2>Your location is encrypted before it leaves your device</h2>
 <p>Positions are encrypted with AES-256-GCM using a key derived from your
-circle's secret before they are sent anywhere. That secret lives only inside
-invite links, in the part of the URL that browsers never transmit to a
-server. The relay that moves messages between your circle's devices stores
-and forwards ciphertext it cannot decrypt. Names, avatars, and status text
+circle's secret before they are sent anywhere. That secret is made on your
+device and never travels in an invite link: an invite carries a one-time
+code, and a new member receives the circle's keys only after you compare a
+safety number with them and accept. The relay that moves messages between
+your circle's devices stores and forwards ciphertext it cannot decrypt. Names, avatars, and status text
 travel inside that same ciphertext.</p>
 
 <h2>What the relay does see</h2>
@@ -50,9 +51,11 @@ through the relay. If you also want the relay not to see yours, route the
 Android app through Orbot: there is a toggle in settings, and Orbot's
 per-app VPN mode works with no setup at all.</p>
 <h2>The website does not handle circles</h2>
-<p>Location sharing happens in the Android app only. This website is a
-landing page and a demo; it will not create or open a circle, and the demo
-runs entirely on your device with invented data and no network requests.
+<p>Location sharing happens in the Starling apps only: the Android app, and an
+iOS app you can build from source. This website is a landing page and a
+demo; it will not create or open a circle. The demo runs entirely on your
+device with invented data and makes no network requests, unless you ask it
+for a real map, which loads OpenStreetMap tiles of its Central Park stage.
 Sharing done here by older versions of the web app stays encrypted in your
 browser's storage until you erase it from the page.</p>
 
@@ -65,7 +68,8 @@ Off-grid basemap in settings and the app renders the map locally and makes
 no tile requests at all.</p>
 
 <h2>What stays only on your device</h2>
-<p>Your circle memberships, the app lock passcode, cached member positions,
+<p>Your circle memberships, the app lock's wrapped key (never the passcode
+itself), cached member positions,
 and any local settings live in your device's local storage only. Starling
 does not run analytics, crash reporting, or advertising code, and makes no
 network requests beyond the relay and, optionally, map tiles.</p>
