@@ -3,7 +3,7 @@
 All notable changes to Starling are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
-## [Unreleased]
+## [0.13.1]
 
 - **Settings shows the version you actually have.** The About line was typed in
   by hand and had said 0.8.0 since 0.8.0, so every build after it looked out of
