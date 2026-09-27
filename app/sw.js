@@ -1,6 +1,6 @@
 // Starling service worker. App shell only; location data never touches a cache.
 
-const VERSION = "starling-v19";
+const VERSION = "starling-v20";
 
 const PRECACHE = [
   "/",
@@ -104,10 +104,18 @@ self.addEventListener("fetch", (event) => {
     // Both spellings: the host serves this page at /help and redirects
     // /help.html to it, while a local dev server serves the file itself.
     if (url.pathname === "/help" || url.pathname === "/help.html") return;
+    // Only the shell answers from cache; any other page is its own document.
+    const shell = url.pathname === "/" || url.pathname === "/index.html";
     event.respondWith(
       (async () => {
         const cached = await caches.match("/index.html");
-        return cached || fetch(req);
+        if (shell) return cached || fetch(req);
+        try {
+          return await fetch(req);
+        } catch (err) {
+          if (cached) return cached;
+          throw err;
+        }
       })()
     );
     return;

@@ -411,8 +411,22 @@ a.land-download {
 
 .land-links {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
-  gap: 18px;
+  gap: 0 16px;
+}
+
+.land-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  white-space: nowrap;
+}
+
+.land-footer > p a,
+.land-footer .land-more p a {
+  display: inline-block;
+  padding: 4px 0;
 }
 
 .land-more {

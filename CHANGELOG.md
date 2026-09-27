@@ -3,6 +3,21 @@
 All notable changes to Starling are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
+## Unreleased
+
+Website and listing only; nothing in the app's behaviour changed.
+
+- **The site says Starling is on F-Droid.** It has been since 09-23, and the
+  install card still said "in review". F-Droid is now the first route, and the
+  card says it ships the same signed APK as GitHub, so you can switch sources.
+- **The privacy policy describes v2.** It still said the circle secret rides in
+  invite links, that the demo never touches the network, and that the passcode
+  is stored. None of that is true of 0.13.1. The effective date moved with it.
+- **The privacy page is reachable again after visiting the site.** The service
+  worker answered every page with the cached landing, so the footer's Privacy
+  link showed the landing a second time.
+- **Settings says who made the app**, with a link to the source.
+
 ## [0.13.1]
 
 - **Settings shows the version you actually have.** The About line was typed in

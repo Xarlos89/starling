@@ -169,3 +169,44 @@ test("every module the app statically imports is in the precache", () => {
   assert.deepEqual(missing, [], `these are imported but never precached: ${missing.join(", ")}`);
   assert.ok(seen.size > 10, "the walk actually followed the graph rather than finding nothing");
 });
+
+// Runs the real worker against stub caches and fetch, and returns what it
+// answers a navigation with: "cache", "network", or null when it lets the
+// browser handle the request itself.
+async function answerNavigation(pathname, { online = true } = {}) {
+  const { runInNewContext } = await import("node:vm");
+  const handlers = {};
+  const SHELL = { from: "cache" };
+  const sandbox = {
+    URL,
+    console,
+    self: {
+      location: { origin: "https://starlingmap.app" },
+      addEventListener: (type, fn) => { handlers[type] = fn; },
+      skipWaiting() {},
+      clients: { claim() {} },
+    },
+    caches: { match: async (key) => (key === "/index.html" ? SHELL : undefined) },
+    fetch: async () => {
+      if (!online) throw new TypeError("offline");
+      return { from: "network" };
+    },
+  };
+  runInNewContext(swText, sandbox);
+  let answer = null;
+  handlers.fetch({
+    request: { method: "GET", mode: "navigate", url: `https://starlingmap.app${pathname}` },
+    respondWith: (p) => { answer = p; },
+  });
+  return answer ? (await answer).from : null;
+}
+
+test("the worker answers only the app shell from cache, not other pages", async () => {
+  assert.equal(await answerNavigation("/"), "cache");
+  assert.equal(await answerNavigation("/index.html"), "cache");
+  assert.equal(await answerNavigation("/?demo=1"), "cache");
+  assert.equal(await answerNavigation("/privacy"), "network");
+  assert.equal(await answerNavigation("/privacy.html"), "network");
+  assert.equal(await answerNavigation("/help"), null);
+  assert.equal(await answerNavigation("/privacy", { online: false }), "cache");
+});

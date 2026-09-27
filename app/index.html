@@ -17,6 +17,7 @@
      doesn't. black-translucent draws under the status bar, which is why the
      map screen already pads for env(safe-area-inset-top) in tokens.css. -->
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Starling">
 <link rel="canonical" href="https://starlingmap.app/">
@@ -26,10 +27,14 @@
 <meta property="og:description" content="End to end encrypted location sharing for your circle. No accounts, no tracking. Free Android app, live demo in the browser.">
 <meta property="og:url" content="https://starlingmap.app/">
 <meta property="og:image" content="https://starlingmap.app/icons/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The Starling logo: private location sharing for your circle.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Starling: private location sharing">
 <meta name="twitter:description" content="End to end encrypted location sharing for your circle. No accounts, no tracking.">
 <meta name="twitter:image" content="https://starlingmap.app/icons/og.png">
+<meta name="twitter:image:alt" content="The Starling logo: private location sharing for your circle.">
 <title>Starling: private location sharing</title>
 <script type="application/ld+json">
 {
@@ -41,6 +46,7 @@
   "description": "Private, end to end encrypted location sharing for your circle. No accounts, no tracking.",
   "url": "https://starlingmap.app/",
   "downloadUrl": "https://github.com/munzzyy/starling/releases/latest/download/starling.apk",
+  "installUrl": "https://f-droid.org/packages/app.starlingmap/",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
   "author": { "@type": "Person", "name": "Munzzyy", "url": "https://github.com/munzzyy" },
   "license": "https://github.com/munzzyy/starling/blob/main/LICENSE"
@@ -343,9 +349,9 @@
         <text class="lnd-flow-label" x="280" y="150" text-anchor="middle">Sealed envelope</text>
 
         <path class="lnd-flow-arrow" d="M330 100h60" marker-end="url(#lnd-arrow)"/>
-        <g class="lnd-flow-node" transform="translate(400,60)">
-          <rect class="lnd-flow-box lnd-flow-relay" width="130" height="80" rx="16"/>
-          <path class="lnd-flow-icon" d="M45 30h40M45 40h40M45 50h24" stroke-linecap="round"/>
+        <g class="lnd-flow-node" transform="translate(400,64)">
+          <rect class="lnd-flow-box lnd-flow-relay" width="130" height="68" rx="16"/>
+          <path class="lnd-flow-icon" d="M45 24h40M45 34h40M45 44h24" stroke-linecap="round"/>
         </g>
         <text class="lnd-flow-label" x="465" y="150" text-anchor="middle">Relay</text>
         <text class="lnd-flow-sub lnd-flow-sees" x="465" y="168" text-anchor="middle">Sees: size, timing, ciphertext</text>
@@ -458,7 +464,7 @@
         <a href="https://github.com/munzzyy/starling">Source</a>
         <a href="https://github.com/munzzyy/starling/blob/main/docs/PROTOCOL.md">Protocol</a>
         <a href="https://github.com/munzzyy/starling/blob/main/docs/THREAT-MODEL.md">Threat model</a>
-        <a href="/privacy.html">Privacy</a>
+        <a href="/privacy">Privacy</a>
         <a href="https://github.com/munzzyy/starling/blob/main/SECURITY.md">Security</a>
       </nav>
       <section class="land-more" aria-labelledby="land-more-title">

@@ -631,6 +631,12 @@
 
 /* ------------------------------------------------------------ desktop+ */
 
+@media (min-width: 720px) and (max-width: 1019px) {
+  .lnd-feature:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
+
 @media (min-width: 720px) {
   .lnd-feature-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -654,6 +660,10 @@
 
   .lnd-eyebrow {
     font-size: 1.625rem;
+  }
+
+  .lnd-how .lnd-eyebrow {
+    text-align: left;
   }
 }
 
