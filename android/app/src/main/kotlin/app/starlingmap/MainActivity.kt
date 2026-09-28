@@ -238,12 +238,15 @@ class MainActivity : FragmentActivity() {
         val executor = ContextCompat.getMainExecutor(this)
         if (torEnabled()) {
             OrbotStatus.start(this) { applyTorPref() }
-            val config = ProxyConfig.Builder()
-                .addProxyRule("socks5://127.0.0.1:${OrbotStatus.socksPort}")
-                .build()
+            val rule = "socks5://127.0.0.1:${OrbotStatus.socksPort}"
+            if (PageHost.proxyApplied == rule) return
+            PageHost.proxyApplied = rule
+            val config = ProxyConfig.Builder().addProxyRule(rule).build()
             controller.setProxyOverride(config, executor, reload)
         } else {
             OrbotStatus.stop(this)
+            if (PageHost.proxyApplied == "direct") return
+            PageHost.proxyApplied = "direct"
             controller.clearProxyOverride(executor, reload)
         }
     }

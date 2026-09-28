@@ -35,6 +35,12 @@ object PageHost {
     private val main = Handler(Looper.getMainLooper())
     private var release: Runnable? = null
 
+    // The proxy config last handed to ProxyController in this process, or null
+    // before the first. Applying one reloads the page, so an unchanged config
+    // is never applied twice: reopening the app would otherwise reload the
+    // page that has been carrying a share, and the share with it.
+    var proxyApplied: String? = null
+
     // The activity currently borrowing the page, or null while it is running
     // headless behind the share service.
     var activity: MainActivity? = null
@@ -165,14 +171,19 @@ object PageHost {
     }
 
     fun reload() {
-        webView?.let { v -> v.post { v.reload() } }
+        val v = webView ?: return
+        main.post { if (webView === v) v.reload() }
     }
 
     // Script is only ever a literal here plus JSONObject.quote of the data;
     // nothing interpolates a value into code.
+    //
+    // Through the main handler, never View.post: a view with no window queues
+    // its posts until it is attached again, so every fix pushed at a headless
+    // page sat there unrun until somebody reopened the app.
     fun eval(script: String) {
         val v = webView ?: return
-        v.post { v.evaluateJavascript(script, null) }
+        main.post { if (webView === v) v.evaluateJavascript(script, null) }
     }
 
     fun deliverFix(json: String) = eval("globalThis.__starlingFix && __starlingFix(${JSONObject.quote(json)})")

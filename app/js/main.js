@@ -583,7 +583,7 @@ function ensureMapUI() {
   mapView.setPlaces(state.places);
   sheet = ui.createSheet($("#sheet"), $("#sheet-drag"), $("#sheet-body"));
 
-  byTestid("share-toggle").addEventListener("click", () => setSharing(!state.sharing));
+  byTestid("share-toggle").addEventListener("click", onShareToggle);
   const winBtns = [...document.querySelectorAll(".share-window-btn")];
   for (const b of winBtns) {
     b.addEventListener("click", () => setShareWindow(Number(b.dataset.win) || 0));
@@ -4529,6 +4529,18 @@ async function measureClockSkew() {
   }
 }
 
+// A person turning sharing on is past whatever a swipe stopped last time, and
+// with the share live the card saying closing stopped it is no longer true.
+// A Stop from the notification stays: someone tapping it is worth knowing
+// about however many shares later.
+function onShareToggle() {
+  if (!state.sharing && state.stopRecord?.route === "swipe") {
+    state.stopRecord = null;
+    native()?.clearStopRecord?.();
+  }
+  return setSharing(!state.sharing);
+}
+
 async function setSharing(on) {
   if (state.demo) {
     state.sharing = on;
@@ -5443,6 +5455,7 @@ if (debugHooks()) window.__starlingInternals = {
   persistRatchet,
   startJoinWatch,
   alertItems,
+  onShareToggle,
   lockNow,
   switchCircle,
   writeChainKey,

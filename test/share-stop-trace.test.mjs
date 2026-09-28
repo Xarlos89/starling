@@ -156,3 +156,25 @@ test("a live stop from the notification names itself instead of going silent, an
     if (state.sharing) await internals.stopSharingInternals();
   }
 });
+
+test("starting a share by hand clears a swipe record, but a notification Stop stays", async () => {
+  for (const [route, cleared] of [["swipe", true], ["notif", false]]) {
+    resetForBoot();
+    const calls = [];
+    globalThis.StarlingNative = {
+      readStopRecord: () => JSON.stringify({ route, at: 3000 }),
+      clearStopRecord: () => calls.push("clear"),
+    };
+    try {
+      await internals.boot();
+      await settle();
+      assert.equal(state.stopRecord?.route, route);
+      internals.onShareToggle();
+      await settle();
+      assert.equal(state.stopRecord === null, cleared, `${route} record after a manual start`);
+      assert.equal(calls.includes("clear"), cleared);
+    } finally {
+      delete globalThis.StarlingNative;
+    }
+  }
+});
