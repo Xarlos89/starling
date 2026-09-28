@@ -3,9 +3,10 @@
 All notable changes to Starling are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
-## Unreleased
+## [0.13.2]
 
-Website and listing only; nothing in the app's behaviour changed.
+Mostly the website and the store listing. In the app, Settings now says who
+made it.
 
 - **The site says Starling is on F-Droid.** It has been since 09-23, and the
   install card still said "in review". F-Droid is now the first route, and the
