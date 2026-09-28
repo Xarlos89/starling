@@ -3,6 +3,30 @@
 All notable changes to Starling are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
+## [0.13.3]
+
+KC5YVV found that "Keep sharing when the app is closed" did not keep sharing on
+their Pixels, and they were right. The share looked on and posted nothing.
+
+- **Positions now reach the page while the app is closed.** Every fix was handed
+  to the page with `View.post`, which a view with no window holds until it is
+  attached again. So with the app swiped away, each position waited in a queue
+  that only drained when you reopened Starling, and nothing was sent in
+  between. Fixes now go through the main thread's handler. On an Android 16
+  image, swiped away with the screen off, the page took 12 of 12 fixes and made
+  15 accepted posts; before this change it took none.
+- **Reopening the app no longer restarts the share.** Opening Starling
+  re-applied the network proxy setting every time, and applying it reloads the
+  page. That threw away a share that had been running on its own and started a
+  new one, which is where "Sharing was on when the app closed, so it is back on"
+  came from. The setting is only applied again when it has actually changed.
+- **An old swipe notice no longer sits under a live share.** Turning sharing on
+  yourself clears a record left by an earlier swipe. A Stop tapped on the
+  notification is still kept, because someone doing that is worth knowing about.
+- **More of the map speaks Spanish.** Your own marker, an unnamed member, the
+  demo position and a couple of fallbacks still said "You" or "Someone" in
+  English. Toasts also no longer land on top of the demo banner.
+
 ## [0.13.2]
 
 Mostly the website and the store listing. In the app, Settings now says who
