@@ -82,6 +82,7 @@ test("no user-visible literal bypasses the translator", () => {
   const files = ["app/js/main.js", "app/js/ui.js", "app/js/helpview.js"];
   const allow = new Set([
     // product name + version, language-invariant
+    "Starling ${VERSION}",
   ]);
   const hits = [];
   for (const f of files) {
@@ -94,6 +95,10 @@ test("no user-visible literal bypasses the translator", () => {
     }
     for (const m of src.matchAll(/\.textContent = \w+ \? "([^"]{6,})" : "([^"]{6,})"/g)) {
       hits.push(`${f}: ternary "${m[1]}"`);
+    }
+    // el() translates its text, but an interpolated template is never a catalog key.
+    for (const m of src.matchAll(/\bel\("\w+", "[^"]*", `([^`]*\$\{[^`]*)`/g)) {
+      if (!allow.has(m[1])) hits.push(`${f}: el() template "${m[1].slice(0, 40)}"`);
     }
   }
   assert.deepEqual(hits, [], hits.slice(0, 6).join("\n"));

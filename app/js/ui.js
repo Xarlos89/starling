@@ -37,6 +37,10 @@ function btn(cls, text, label) {
 
 export function toast(message, kind = "info") {
   const host = document.getElementById("toasts");
+  // Under the map's top chrome as it stands now, since banners change its height.
+  const chrome = document.querySelector("#screen-map:not([hidden]) .top-chrome");
+  const bottom = chrome?.getBoundingClientRect?.().bottom || 0;
+  host.style.top = bottom > 0 ? `${Math.round(bottom + 8)}px` : "";
   const node = el("div", `toast toast-${kind}`, message);
   node.dataset.testid = "toast";
   // Safety-critical toasts (an incoming SOS, a warning) announce assertively
@@ -919,7 +923,7 @@ export function openMembersSheet({ api, onClose }) {
       const ch = changes.get(id) || null;
       if (!ch) need(id);
       row.update({
-        name: live.get(id)?.name || rec.name || "Member",
+        name: live.get(id)?.name || rec.name || t("Member"),
         verified: rec.verified,
         safety: numbers.get(id) || null,
         change: ch,
@@ -1106,9 +1110,9 @@ function reviewBlock(api, req, { onChanged, onAccepted }) {
   const box = el("div", "review");
   box.dataset.testid = "join-review";
   box.dataset.member = req.memberId;
-  const who = req.name || "Someone";
+  const who = req.name || t("Someone");
   box.append(el("h3", "review-title", t("{who} wants to join", { who })));
-  box.append(el("p", "ov-note", `They chose the name ${who}. Anyone can type any name, so the number below is the only part that proves who they are.`));
+  box.append(el("p", "ov-note", t("They chose the name {who}. Anyone can type any name, so the number below is the only part that proves who they are.", { who })));
   box.append(safetyBlock(req.safety, "join-safety"));
   box.append(
     el(

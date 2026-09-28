@@ -482,5 +482,7 @@ export const es = {
   "Could not change that setting.": "No se pudo cambiar ese ajuste.",
   "Sharing was stopped from the notification.": "Se detuvo el compartir desde la notificación.",
   "Made by {name}": "Hecho por {name}",
+  "They chose the name {who}. Anyone can type any name, so the number below is the only part that proves who they are.":
+    "Eligió el nombre {who}. Cualquiera puede escribir cualquier nombre, así que el número de abajo es lo único que demuestra quién es.",
   "Source code": "Código fuente",
 };

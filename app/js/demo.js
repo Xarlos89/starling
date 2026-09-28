@@ -170,7 +170,7 @@ export function demoFrame(tSec, now, profile) {
   const youGeom = segLengths(YOU_PATH);
   const youPos = toLatLon(posAlong(YOU_PATH, youGeom, YOU_SPEED * tSec));
   const you = {
-    name: profile?.name || "You",
+    name: profile?.name || t("You"),
     emoji: profile?.emoji || "\u{1F9ED}",
     lat: youPos.lat,
     lon: youPos.lon,

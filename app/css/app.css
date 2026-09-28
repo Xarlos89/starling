@@ -830,6 +830,7 @@ a.land-download {
 
 .banner-btn {
   min-height: 30px;
+  white-space: nowrap;
   padding: 4px 14px;
   border-radius: var(--r-full);
   background: var(--bg-2);

@@ -476,7 +476,7 @@ if (debugHooks()) window.__starlingState = () => {
       state.identity || state.demo
         ? {
             id: state.identity?.memberId || "demo",
-            name: state.profile?.name || "You",
+            name: state.profile?.name || t("You"),
             lat: state.me?.lat ?? null,
             lon: state.me?.lon ?? null,
           }
@@ -1217,7 +1217,7 @@ function renderMarkers(list, now) {
     mapView.upsert(rec.id, {
       lat: rec.lat,
       lon: rec.lon,
-      name: rec.name || "Member",
+      name: rec.name || t("Member"),
       emoji: rec.emoji || "",
       hue: rec.hue ?? hueFromMemberId(rec.id),
       status: statusOf(rec, now),
@@ -1230,7 +1230,7 @@ function renderMarkers(list, now) {
     mapView.upsert("me", {
       lat: state.me.lat,
       lon: state.me.lon,
-      name: "You",
+      name: t("You"),
       emoji: state.profile?.emoji || "\u{1F9ED}",
       hue: myHue(),
       status: state.sosActive ? "sos" : "live",
@@ -5198,7 +5198,7 @@ function checkAlerts() {
   for (const rec of members()) {
     const st = statusOf(rec, now);
     const prev = prevStatus.get(rec.id);
-    const who = rec.name || "A member";
+    const who = rec.name || t("A member");
     if (st === "sos" && prev !== "sos") {
       ui.toast(t("SOS from {who}", { who: rec.name || t("a member") }), "sos");
       navigator.vibrate?.([160, 80, 160, 80, 240]);
