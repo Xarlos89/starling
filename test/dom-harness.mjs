@@ -176,12 +176,16 @@ export function installDom({ hostname = "127.0.0.1" } = {}) {
   const timers = new Set();
   const realSetTimeout = globalThis.setTimeout;
   const realSetInterval = globalThis.setInterval;
+  // A poll already in flight re-arms after the clear, so stopping is final.
+  let stopped = false;
   globalThis.setTimeout = (...a) => {
+    if (stopped) return 0;
     const id = realSetTimeout(...a);
     timers.add(id);
     return id;
   };
   globalThis.setInterval = (...a) => {
+    if (stopped) return 0;
     const id = realSetInterval(...a);
     timers.add(id);
     return id;
@@ -205,6 +209,7 @@ export function installDom({ hostname = "127.0.0.1" } = {}) {
     // The element a selector resolves to, for reading back what was rendered.
     node,
     stopTimers() {
+      stopped = true;
       for (const id of timers) {
         clearTimeout(id);
         clearInterval(id);

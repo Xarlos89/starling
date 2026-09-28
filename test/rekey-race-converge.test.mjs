@@ -154,7 +154,7 @@ function relay(view) {
   return reads;
 }
 
-test("a follower that backed the losing re-key ends up on the winner's generation", async () => {
+test("a follower that backed the losing re-key ends up on the winner's generation", { timeout: 60_000 }, async () => {
   const [win, lose, other] = await sortedIdentities(3);
   const [winGen, loseGen] = await circleWith(other, [win, lose]);
   const oldChannel = state.gen.channelId;
@@ -187,7 +187,7 @@ test("a follower that backed the losing re-key ends up on the winner's generatio
   assert.ok(converged, "and then moves to the winner's channel, where the rest of the circle is");
 });
 
-test("a rotator whose own re-key loses the race moves to the winner too", async () => {
+test("a rotator whose own re-key loses the race moves to the winner too", { timeout: 60_000 }, async () => {
   const [win, self, other] = await sortedIdentities(3);
   const [winGen] = await circleWith(self, [win, other]);
   const oldChannel = state.gen.channelId;
