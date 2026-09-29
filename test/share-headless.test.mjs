@@ -116,3 +116,65 @@ test("a fix inside the window leaves a timed share alone", async () => {
   await settle();
   delete globalThis.StarlingNative;
 });
+
+test("a phone that is not moving still posts off the fixes the service pushes", async () => {
+  for (const steady of [false, true]) {
+    state.settings.steady = steady;
+    await internals.setSharing(false);
+    await sharing();
+    const posts = [];
+    const realFetch = globalThis.fetch;
+    const realNow = Date.now;
+    globalThis.fetch = async (url, opts) => {
+      if (opts?.method === "POST") posts.push(String(url));
+      return new Response("{}", { status: 200 });
+    };
+    try {
+      const t0 = realNow();
+      const at = (ms) => (Date.now = () => t0 + ms);
+      const fix = { lat: 40.785, lon: -73.968, acc: 5, ts: t0 };
+      at(0);
+      globalThis.__starlingFix(JSON.stringify(fix));
+      await settle();
+      const first = posts.length;
+      assert.ok(first >= 1, `steady=${steady}: the first fix posts`);
+      at(5000);
+      globalThis.__starlingFix(JSON.stringify({ ...fix, ts: t0 + 5000 }));
+      await settle();
+      assert.equal(posts.length, first, `steady=${steady}: same spot inside the interval posts nothing`);
+      at(16000);
+      globalThis.__starlingFix(JSON.stringify({ ...fix, ts: t0 + 16000 }));
+      await settle();
+      assert.equal(posts.length, first + 1, `steady=${steady}: same spot after the interval posts again`);
+    } finally {
+      globalThis.fetch = realFetch;
+      Date.now = realNow;
+      state.settings.steady = false;
+    }
+  }
+});
+
+test("auto-lock waits out a share kept past the app closing, and only that", async () => {
+  await sharing();
+  const own = Object.getOwnPropertyDescriptor(document, "visibilityState");
+  Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+  const prevLock = state.lock;
+  state.lock = { enabled: true, autolockMs: 60000 };
+  try {
+    internals.armAutoLock();
+    assert.equal(internals.lockArmed(), false, "switch on: no lock timer while sharing");
+    globalThis.StarlingNative.keepSharing = () => false;
+    internals.armAutoLock();
+    assert.equal(internals.lockArmed(), true, "switch off: the lock timer runs as before");
+    globalThis.StarlingNative.keepSharing = () => true;
+    internals.armAutoLock();
+    await internals.setSharing(false);
+    assert.equal(internals.lockArmed(), true, "and it arms the moment the kept share ends");
+  } finally {
+    state.lock = { enabled: false };
+    internals.armAutoLock();
+    state.lock = prevLock;
+    delete document.visibilityState;
+    if (own) Object.defineProperty(document, "visibilityState", own);
+  }
+});

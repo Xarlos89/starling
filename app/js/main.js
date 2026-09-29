@@ -783,7 +783,9 @@ function alertItems() {
         ? shareResumed && state.sharing
           ? t("The app was closed while sharing was on, which stopped it, and opening it again put it back on. If closing it was not you, check who has access to this phone.")
           : t("The app was closed while sharing was on, which stops it every time. If that was not you, check who has access to this phone.")
-        : t("Someone tapped Stop on the sharing notification. If that was not you, check who has access to this phone.");
+        : state.stopRecord.route === "renderer"
+          ? t("Android shut down the part of Starling that sends your position, so the share stopped. Nobody did this by hand.")
+          : t("Someone tapped Stop on the sharing notification. If that was not you, check who has access to this phone.");
     items.push({
       id: "stop-record",
       kind: "warn",
@@ -1700,12 +1702,19 @@ function setupNet() {
     onControl,
     onKeyChange,
   });
+  let lastTsCache = null;
   sender = createSender({
     identity: state.identity,
     channelId: gen.channelId,
     ratchet: gen.ratchet,
-    getLastTs: () => dbGet("lastSentTs"),
-    setLastTs: (ts) => dbSet("lastSentTs", ts),
+    // Read once per sender, then kept in memory and written behind. Every post
+    // used to wait on two IndexedDB round trips, and a page with no window
+    // cannot count on those settling, so one stall held up every later post.
+    getLastTs: async () => (lastTsCache ??= (await dbGet("lastSentTs")) || 0),
+    setLastTs: (ts) => {
+      lastTsCache = ts;
+      dbSet("lastSentTs", ts).catch(() => {});
+    },
   });
   poller = createPoller({
     channelId: gen.channelId,
@@ -3088,13 +3097,30 @@ function forgotPasscode() {
 
 // Auto-lock: relock after the chosen idle delay once the tab is hidden, and
 // always start locked on a fresh launch (handled in boot).
-document.addEventListener("visibilitychange", () => {
+//
+// Not while a share is running with "keep sharing when the app is closed" on.
+// Locking drops the keys, and dropping the keys ends the share, which is the
+// one thing that switch promises will not happen; its note says the lock
+// cannot protect them until the share ends. The timer is armed when the share
+// does end.
+function armAutoLock() {
   if (!state.lock?.enabled || state.locked) return;
   clearTimeout(lockTimer);
-  if (document.visibilityState === "hidden") {
-    lockTimer = setTimeout(lockNow, state.lock.autolockMs);
+  lockTimer = 0;
+  if (document.visibilityState !== "hidden") return;
+  if (state.sharing && keptPastClose()) return;
+  lockTimer = setTimeout(lockNow, state.lock.autolockMs);
+}
+
+function keptPastClose() {
+  try {
+    return !!native()?.keepSharing?.();
+  } catch {
+    return false;
   }
-});
+}
+
+document.addEventListener("visibilitychange", armAutoLock);
 
 async function saveProfile(p) {
   state.profile = { name: p.name, emoji: p.emoji };
@@ -4529,12 +4555,13 @@ async function measureClockSkew() {
   }
 }
 
-// A person turning sharing on is past whatever a swipe stopped last time, and
-// with the share live the card saying closing stopped it is no longer true.
+// A person turning sharing on is past whatever a swipe or Android stopped last
+// time, and with the share live a card saying the share stopped is no longer
+// true.
 // A Stop from the notification stays: someone tapping it is worth knowing
 // about however many shares later.
 function onShareToggle() {
-  if (!state.sharing && state.stopRecord?.route === "swipe") {
+  if (!state.sharing && state.stopRecord && state.stopRecord.route !== "notif") {
     state.stopRecord = null;
     native()?.clearStopRecord?.();
   }
@@ -4591,6 +4618,9 @@ async function setSharing(on) {
     stopGeo = null;
     stopForeground();
     lastSentPos = null;
+    // Synchronous, before any await: a kept share held the lock off, and a page
+    // with no window cannot promise to get past the next await.
+    armAutoLock();
     // This path is every deliberate end: the toggle, the notification's Stop,
     // the timer, a circle switch, a lock. None of them should come back by
     // themselves on the next open.
@@ -4758,6 +4788,12 @@ function onFix(fix) {
     (!lastSentPos || haversineMeters(lastSentPos.lat, lastSentPos.lon, fix.lat, fix.lon) > 25)
   ) {
     sendLoc();
+  } else if (state.sharing && (!lastSentPos || Date.now() - lastSentPos.at >= SHARE_INTERVAL_MS)) {
+    // The interval timer is a page timer, and with the app closed it barely
+    // runs. The service pushes a fix at least every interval even when the
+    // phone is still, so this is what keeps a closed app's share from going
+    // quiet and looking stopped to everyone watching.
+    sendLoc(true);
   }
   render();
 }
@@ -4822,6 +4858,7 @@ function stopSharingInternals() {
   shareWindowMs = 0;
   stopGeo?.();
   stopGeo = null;
+  armAutoLock();
 }
 
 function onGeoError(err) {
@@ -5456,6 +5493,8 @@ if (debugHooks()) window.__starlingInternals = {
   startJoinWatch,
   alertItems,
   onShareToggle,
+  armAutoLock,
+  lockArmed: () => lockTimer !== 0,
   lockNow,
   switchCircle,
   writeChainKey,
@@ -5566,7 +5605,7 @@ async function boot() {
       const raw = native()?.readStopRecord?.();
       if (raw) {
         const rec = JSON.parse(raw);
-        if (rec && (rec.route === "notif" || rec.route === "swipe")) state.stopRecord = rec;
+        if (rec && (rec.route === "notif" || rec.route === "swipe" || rec.route === "renderer")) state.stopRecord = rec;
       }
     } catch {
       // a malformed native record is not worth failing boot over

@@ -35,6 +35,12 @@ class LocationService : Service(), LocationListener {
         private const val ACTION_STOP = "app.starlingmap.STOP_SHARE"
         private const val MIN_TIME_MS = 3000L
         private const val MIN_DIST_M = 5f
+        // A phone lying still passes no distance filter, so without this the
+        // page hears nothing and, with no window, its own send timer barely
+        // runs: the share goes quiet and looks stopped to everyone watching.
+        // This listener has no distance filter and wakes the page at least
+        // once per send interval.
+        private const val HEARTBEAT_MS = 15000L
 
         // The activity plants a sink to push fixes into the page. Static is
         // fine: one process, one WebView.
@@ -54,9 +60,50 @@ class LocationService : Service(), LocationListener {
         fun stop(ctx: Context) {
             ctx.stopService(Intent(ctx, LocationService::class.java))
         }
+
+        // Ends a share for a reason the person did not choose, leaving the same
+        // trace a swipe or the notification's Stop leaves.
+        fun endShare(ctx: Context, route: String) {
+            recordEnded(ctx, route)
+            stop(ctx)
+        }
+
+        // The record goes down BEFORE the notification: that notification can
+        // be swiped away with no unlock at all below Android 12, so it is the
+        // record, not the notification, that has to survive. It lives in the
+        // same private prefs file the whole app data directory does, so a panic
+        // wipe's clearApplicationUserData takes it with everything else.
+        private fun recordEnded(ctx: Context, route: String) {
+            ctx.getSharedPreferences(MainActivity.PREFS, MODE_PRIVATE).edit()
+                .putString(MainActivity.PREF_STOP_ROUTE, route)
+                .putLong(MainActivity.PREF_STOP_TS, System.currentTimeMillis())
+                .apply()
+            Events.post(
+                ctx,
+                ctx.getString(R.string.notif_swiped_title),
+                ctx.getString(R.string.notif_swiped_text),
+                "share-ended",
+            )
+        }
     }
 
     private var watching = false
+
+    // Spelled out rather than a lambda: on API 29 the other callbacks are not
+    // default methods yet, and the platform calls them.
+    private val heartbeat = object : LocationListener {
+        override fun onLocationChanged(location: Location) = this@LocationService.onLocationChanged(location)
+
+        @Deprecated("Deprecated in Java")
+        override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {
+        }
+
+        override fun onProviderEnabled(provider: String) {
+        }
+
+        override fun onProviderDisabled(provider: String) {
+        }
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -100,6 +147,7 @@ class LocationService : Service(), LocationListener {
             if (!lm.allProviders.contains(provider)) continue
             try {
                 lm.requestLocationUpdates(provider, MIN_TIME_MS, MIN_DIST_M, this, mainLooper)
+                lm.requestLocationUpdates(provider, HEARTBEAT_MS, 0f, heartbeat, mainLooper)
                 any = true
             } catch (e: SecurityException) {
                 // permission revoked between the page's start call and here
@@ -152,24 +200,8 @@ class LocationService : Service(), LocationListener {
     }
 
     // Shared with the Stop-button branch so both ways of ending a share leave
-    // the same trace. The record goes down BEFORE the notification: that
-    // notification can be swiped away with no unlock at all below Android 12,
-    // so it is the record, not the notification, that has to survive. It
-    // lives in the same private prefs file the whole app data directory does,
-    // so a panic wipe's clearApplicationUserData takes it with everything
-    // else; nothing here writes it anywhere that outlives that call.
-    private fun postShareEnded(route: String) {
-        getSharedPreferences(MainActivity.PREFS, MODE_PRIVATE).edit()
-            .putString(MainActivity.PREF_STOP_ROUTE, route)
-            .putLong(MainActivity.PREF_STOP_TS, System.currentTimeMillis())
-            .apply()
-        Events.post(
-            this,
-            getString(R.string.notif_swiped_title),
-            getString(R.string.notif_swiped_text),
-            "share-ended",
-        )
-    }
+    // the same trace.
+    private fun postShareEnded(route: String) = recordEnded(this, route)
 
     override fun onDestroy() {
         running = false
@@ -177,7 +209,9 @@ class LocationService : Service(), LocationListener {
         // instantly: its stop path still has a departure to get onto the relay.
         PageHost.releaseSoon()
         if (watching) {
-            (getSystemService(LOCATION_SERVICE) as LocationManager).removeUpdates(this)
+            val lm = getSystemService(LOCATION_SERVICE) as LocationManager
+            lm.removeUpdates(this)
+            lm.removeUpdates(heartbeat)
             watching = false
         }
         super.onDestroy()

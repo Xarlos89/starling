@@ -470,6 +470,7 @@ export const es = {
   "6 hours": "6 horas",
   "24 hours": "24 horas",
   "Your last share was stopped outside the app": "Tu último compartir se detuvo fuera de la app",
+  "Android shut down the part of Starling that sends your position, so the share stopped. Nobody did this by hand.": "Android cerr\u00f3 la parte de Starling que env\u00eda tu posici\u00f3n, as\u00ed que el compartir se detuvo. Nadie lo hizo a mano.",
   "Someone tapped Stop on the sharing notification. If that was not you, check who has access to this phone.": "Alguien tocó Detener en la notificación de compartir ubicación. Si no fuiste tú, revisa quién tiene acceso a este teléfono.",
   "The app was closed while sharing was on, which stops it every time. If that was not you, check who has access to this phone.": "La app se cerró mientras compartías tu ubicación, y eso siempre la detiene. Si no fuiste tú, revisa quién tiene acceso a este teléfono.",
   "The app was closed while sharing was on, which stopped it, and opening it again put it back on. If closing it was not you, check who has access to this phone.":

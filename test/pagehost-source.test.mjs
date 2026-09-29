@@ -21,3 +21,15 @@ test("reopening the app does not re-apply an unchanged proxy, which reloads the 
   assert.match(src, /PageHost\.proxyApplied == rule\) return/);
   assert.match(src, /PageHost\.proxyApplied == "direct"\) return/);
 });
+
+test("a dead renderer is handled instead of taking the app and the share down", () => {
+  const src = kt("PageHost.kt");
+  assert.match(src, /override fun onRenderProcessGone\([\s\S]*?return true\s*\}/);
+  assert.match(src, /LocationService\.endShare\(app, "renderer"\)/);
+});
+
+test("a still phone still wakes the page: a listener with no distance filter", () => {
+  const src = kt("LocationService.kt");
+  assert.match(src, /requestLocationUpdates\(provider, HEARTBEAT_MS, 0f, heartbeat, mainLooper\)/);
+  assert.match(src, /removeUpdates\(heartbeat\)/);
+});

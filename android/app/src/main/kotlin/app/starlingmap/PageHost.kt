@@ -103,6 +103,26 @@ object PageHost {
         view.addJavascriptInterface(b, "StarlingNative")
 
         view.webViewClient = object : WebViewClient() {
+            // Without this override, WebView takes the whole app down when its
+            // renderer dies, and the low-memory killer will take a renderer
+            // with no window before it takes much else. A share was ending as a
+            // silent process death, with no record and no notification. Now
+            // the app survives it: the dead page is dropped, the share ends
+            // the way any other outside stop does, and an open window gets a
+            // fresh page, which puts the share back on.
+            override fun onRenderProcessGone(
+                view: WebView,
+                detail: android.webkit.RenderProcessGoneDetail,
+            ): Boolean {
+                if (view !== webView) return true
+                val ui = activity
+                val sharing = LocationService.running
+                destroy()
+                if (sharing) LocationService.endShare(app, "renderer")
+                ui?.recreate()
+                return true
+            }
+
             override fun shouldInterceptRequest(
                 view: WebView,
                 request: WebResourceRequest,

@@ -405,7 +405,9 @@ export function createSender({ identity, channelId, ratchet, getLastTs, setLastT
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(post),
-        signal: ctl.signal,
+        // A POST that never answers (a network handover, a stalled Tor circuit)
+        // would otherwise hold the chain, and every later post, forever.
+        signal: typeof AbortSignal.any === "function" ? AbortSignal.any([ctl.signal, AbortSignal.timeout(20000)]) : ctl.signal,
       });
       if (!res.ok) {
         // A clock rejection is not a network problem and must not be shown as

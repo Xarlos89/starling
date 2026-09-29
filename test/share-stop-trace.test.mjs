@@ -178,3 +178,21 @@ test("starting a share by hand clears a swipe record, but a notification Stop st
     }
   }
 });
+
+test("a share Android ended by killing the page says so, and does not blame a person", async () => {
+  resetForBoot();
+  globalThis.StarlingNative = {
+    readStopRecord: () => JSON.stringify({ route: "renderer", at: 4000 }),
+    clearStopRecord: () => {},
+  };
+  try {
+    await internals.boot();
+    await settle();
+    const card = stopCard();
+    assert.ok(card);
+    assert.match(card.text, /Android/);
+    assert.doesNotMatch(card.text, /notification|check who has access/i);
+  } finally {
+    delete globalThis.StarlingNative;
+  }
+});
