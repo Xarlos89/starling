@@ -855,7 +855,7 @@ test("TTL sweep removes rows older than TTL_MS on any feed request", async () =>
 });
 
 test("trail is pruned to the newest TRAIL_CAP points", async () => {
-  const env = freshEnv();
+  const env = freshEnv({ TRIM_EVERY: "1" });
   const circle = await makeCircle();
   const id = await generateIdentity();
   const extra = 5;
@@ -955,4 +955,19 @@ test("the relay stores ciphertext and nothing that decrypts it", async () => {
   assert.ok(!dump.includes(secret));
   assert.ok(!dump.includes("44.98"), "no coordinates in the clear either");
   assert.ok(dump.includes(circle.channel));
+});
+
+test("the trim only runs on sampled posts, so most posts read no trail at all", async () => {
+  const env = freshEnv({ TRIM_EVERY: "1000000000" });
+  const circle = await makeCircle();
+  const id = await generateIdentity();
+  const n = TRAIL_CAP + 5;
+  const base = Date.now() - n;
+  for (let i = 0; i < n; i++) {
+    assert.equal((await postLoc(env, circle.channel, await validPost(circle, id, base + i))).status, 200);
+  }
+  const stored = env.DB._raw
+    .prepare("SELECT COUNT(*) AS n FROM points_v3 WHERE channel = ? AND member = ?")
+    .get(circle.channel, id.memberId);
+  assert.equal(stored.n, n, "sampled out: nothing trimmed, the client cuts to TRAIL_CAP itself");
 });

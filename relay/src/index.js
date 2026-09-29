@@ -77,6 +77,7 @@ const DEFAULT_RATE_POST_MIN = MEMBER_CAP * POSTS_PER_MEMBER_MIN * RATE_POST_HEAD
 // clears. Self-hosters with more than one circle behind a single address raise
 // it.
 const DEFAULT_RATE_IP_MIN = 240;
+const DEFAULT_TRIM_EVERY = 16;
 
 // One map per namespace. Sharing a single map let cheap keys evict expensive
 // ones: channel ids are attacker-chosen and unlimited, so spraying random
@@ -267,12 +268,21 @@ async function handlePost(request, env, channel, url) {
             "WHERE EXISTS (SELECT 1 FROM members_v3 WHERE channel = ? AND member = ?)",
         )
         .bind(channel, body.m, body.e, body.ts, now, body.n, body.c, body.sig, channel, body.m),
-      env.DB
-        .prepare(
-          "DELETE FROM points_v3 WHERE channel = ? AND member = ? AND ts NOT IN " +
-            "(SELECT ts FROM points_v3 WHERE channel = ? AND member = ? ORDER BY ts DESC LIMIT ?)",
-        )
-        .bind(channel, body.m, channel, body.m, TRAIL_CAP),
+      // Trimming reads the member's whole kept window, TRAIL_CAP rows, which
+      // on every post was most of the free tier's daily D1 reads. The client
+      // cuts every trail to TRAIL_CAP itself and the srv sweep bounds storage,
+      // so a trail a few points over between trims costs nothing; trimming
+      // one post in TRIM_EVERY does. A range on the primary key, not NOT IN.
+      ...(Math.random() * envInt(env.TRIM_EVERY, DEFAULT_TRIM_EVERY) < 1
+        ? [
+            env.DB
+              .prepare(
+                "DELETE FROM points_v3 WHERE channel = ? AND member = ? AND ts < " +
+                  "(SELECT ts FROM points_v3 WHERE channel = ? AND member = ? ORDER BY ts DESC LIMIT 1 OFFSET ?)",
+              )
+              .bind(channel, body.m, channel, body.m, TRAIL_CAP - 1),
+          ]
+        : []),
       ...sweepStmts(env, now),
     ]);
   } catch {
