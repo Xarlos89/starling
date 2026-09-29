@@ -3,6 +3,34 @@
 All notable changes to Starling are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
+## [0.13.4]
+
+After 0.13.3, a closer look at everything else that could stop a share once the
+app is closed, on real phones rather than the emulator. Four real ones.
+
+- **The app lock no longer ends a share you asked to keep.** With app lock on,
+  closing Starling started the auto-lock timer, and locking drops the keys,
+  which ended the share a minute later (or at once with "Now"). Opening the
+  app and entering the passcode then put it back on, which looked exactly like
+  a swipe stopping it.
+  The switch already said the lock cannot protect the keys until the share
+  ends; now the code agrees. The lock is armed the moment the share ends.
+- **A phone that isn't moving keeps posting.** Positions only came through
+  after about 5 metres of movement, and the regular send ran on a page timer
+  that barely runs with the app closed. A phone left on a desk went quiet and
+  looked stopped to everyone watching. The service now also sends a position at
+  least every 15 seconds, and the page posts on that schedule. That includes
+  "Steady sending", which relied on the timer alone.
+- **Android killing the page no longer kills the app.** If Android reclaims the
+  part of Starling that runs the page, which it does under memory pressure, the
+  whole app used to go down with it: the share ended silently, with no notice.
+  Now the app survives, you get the usual notice, the next open says Android
+  did it, and an open window gets a fresh page straight away.
+- **One stuck upload can't hold up the rest.** Every post waited on two storage
+  writes, and a post that never got an answer (a network handover, a stalled
+  Tor circuit) blocked every post after it. The timestamp now lives in memory,
+  and a post gives up after 20 seconds.
+
 ## [0.13.3]
 
 KC5YVV found that "Keep sharing when the app is closed" did not keep sharing on
