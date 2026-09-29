@@ -34,6 +34,13 @@ run_worker_first = ["/api/*", "/.well-known/*"]
 # Both are read on every request, so `wrangler deploy` picks up a change with
 # no code edit. A value that is not a positive integer falls back to the
 # default compiled into relay/src/index.js.
+# CPU time per request. The relay does one signature check and a few indexed
+# queries, and ran inside the free plan's fixed 10 ms. Workers Paid defaults to
+# 30 s, so this puts a ceiling back: a bug or a flood can't burn CPU (and the
+# bill) without limit. Raise it if real requests ever hit it.
+[limits]
+cpu_ms = 50
+
 [vars]
 RATE_POST_MIN = "256"
 RATE_GET_MIN = "240"

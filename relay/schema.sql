@@ -39,9 +39,11 @@ CREATE TABLE IF NOT EXISTS points_v3 (
 );
 
 CREATE INDEX IF NOT EXISTS idx_points_v3_srv ON points_v3 (srv);
--- A (channel, srv) index would cut the feed's reads, but it adds a write to
--- every point, and the free tier's daily write cap is the tighter one.
-DROP INDEX IF EXISTS idx_points_v3_channel_srv;
+-- The feed reads one channel's points since a receive time; without this it
+-- walks every channel's recent rows through the srv index. It costs one more
+-- write per point, which the free tier's daily write cap could not spare and
+-- the Workers Paid plan can.
+CREATE INDEX IF NOT EXISTS idx_points_v3_channel_srv ON points_v3 (channel, srv);
 CREATE INDEX IF NOT EXISTS idx_members_v3_srv ON members_v3 (srv);
 
 DROP TABLE IF EXISTS points_v2;
