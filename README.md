@@ -312,6 +312,14 @@ paid developer account. What has not changed: circles still do not belong
 in a browser tab on any platform, and the hosted site still refuses to
 open them.
 
+## Thanks
+
+- [@Quantum-Future](https://github.com/Quantum-Future) reviewed every line of the
+  Spanish translation.
+- [@Catalyze4](https://github.com/Catalyze4) and [@KC5YVV](https://github.com/KC5YVV)
+  tested "Keep sharing when the app is closed" on their own Pixels and kept
+  reporting until it actually worked, which is how 0.13.3 and 0.13.4 happened.
+
 ## Support
 
 Starling is free and stays free. If you want to help keep it going, you can
