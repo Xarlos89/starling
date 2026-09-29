@@ -6,6 +6,7 @@ accounts, no phone numbers, and a relay that stores nothing it could ever read.
 [![CI](https://github.com/munzzyy/starling/actions/workflows/ci.yml/badge.svg)](https://github.com/munzzyy/starling/actions/workflows/ci.yml)
 
 [<img src="https://f-droid.org/badge/get-it-on.png" alt="Get it on F-Droid" height="80">](https://f-droid.org/packages/app.starlingmap/)
+[<img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="80">](https://apps.obtainium.imranr.dev/redirect?r=obtainium%3A%2F%2Fapp%2F%257B%2522id%2522%253A%2522app.starlingmap%2522%252C%2522url%2522%253A%2522https%253A%252F%252Fgithub.com%252Fmunzzyy%252Fstarling%2522%252C%2522author%2522%253A%2522munzzyy%2522%252C%2522name%2522%253A%2522Starling%2522%257D)
 
 **Live:** [starlingmap.app](https://starlingmap.app) ·
 grab the Android app there, from F-Droid, or from the
