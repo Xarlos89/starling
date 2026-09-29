@@ -36,7 +36,7 @@ export const es = {
   "Home": "Casa",
   "The fountain": "La fuente",
   "coffee run": "por un café",
-  "phone's dying": "sin batería ya",
+  "phone's dying": "casi sin batería",
   "omw to the fountain": "voy a la fuente",
   "made it": "llegué",
   "You": "Tú",
