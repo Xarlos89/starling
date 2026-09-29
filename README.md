@@ -6,7 +6,7 @@ accounts, no phone numbers, and a relay that stores nothing it could ever read.
 [![CI](https://github.com/munzzyy/starling/actions/workflows/ci.yml/badge.svg)](https://github.com/munzzyy/starling/actions/workflows/ci.yml)
 
 [<img src="https://f-droid.org/badge/get-it-on.png" alt="Get it on F-Droid" height="80">](https://f-droid.org/packages/app.starlingmap/)
-[<img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="80">](https://apps.obtainium.imranr.dev/redirect?r=obtainium%3A%2F%2Fapp%2F%257B%2522id%2522%253A%2522app.starlingmap%2522%252C%2522url%2522%253A%2522https%253A%252F%252Fgithub.com%252Fmunzzyy%252Fstarling%2522%252C%2522author%2522%253A%2522munzzyy%2522%252C%2522name%2522%253A%2522Starling%2522%257D)
+[<img src="https://munzzyy.github.io/tern/badge.png" alt="Get it with Tern" height="80">](https://munzzyy.github.io/tern/add/?url=https%3A%2F%2Fgithub.com%2Fmunzzyy%2Fstarling)
 
 **Live:** [starlingmap.app](https://starlingmap.app) ·
 grab the Android app there, from F-Droid, or from the
@@ -275,7 +275,7 @@ Orbot support. See [docs/ANDROID.md](docs/ANDROID.md) for building it,
 [docs/fdroid/](docs/fdroid) for the F-Droid metadata.
 
 A signed APK ships with every [release](https://github.com/munzzyy/starling/releases),
-with a stable `starling.apk` name that Obtainium can track. The app has no
+with a stable `starling.apk` name that [Tern](https://github.com/munzzyy/tern) can track. The app has no
 Google services dependency at all (plain `LocationManager`, no Firebase, no
 push), so it runs as-is on GrapheneOS and other de-googled Android builds;
 release testing happens on the no-GMS AOSP emulator image for exactly that
