@@ -312,6 +312,16 @@ paid developer account. What has not changed: circles still do not belong
 in a browser tab on any platform, and the hosted site still refuses to
 open them.
 
+## Support
+
+Starling is free and stays free. If you want to help keep it going, you can
+sponsor on [GitHub Sponsors](https://github.com/sponsors/munzzyy) or send
+Monero to:
+
+```
+8AHCWFiXhAobJdEUYgPh9y6ZgAttnk4YRGMUrpuiNbSLMG8Hmoy2Z76JPeCkJEBcudFVfX6UHa69JYLxBVfAwsjmFoUo1Rr
+```
+
 ## License
 
 [GPL-3.0-or-later](LICENSE). You can use, study, change and share it. If you
