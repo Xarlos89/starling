@@ -1909,7 +1909,7 @@ export function openSettingsSheet({ api, values, demo, tor, keepSharing, lock, l
         if (on) {
           openPasscodeSheet({
             title: "Set a passcode",
-            intro: "Choose a passcode to lock Starling on this device. There is no reset: if you forget it you erase this device and rejoin from an invite.",
+            intro: "Choose a passcode to lock Starling on this device. There is no reset: if you forget it, you have to erase this device and rejoin from an invite.",
             cta: "Turn on app lock",
             confirm: true,
             onClose: revert,
