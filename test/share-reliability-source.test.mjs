@@ -241,3 +241,11 @@ test("a share left with no page ends out loud instead of holding GPS and a wake 
   assert.match(check, /if \(webView == null && LocationService\.live\) appCtx\?\.let \{ LocationService\.endShare\(it, "stalled"\) \}/);
   assert.match(fn(kt("LocationService.kt"), "onTick"), /PageHost\.checkPage\(\)/, "the keepalive tick is what finds it");
 });
+
+test("a share that ends behind a frozen page thaws it once, so the goodbye still goes out", () => {
+  const release = fn(kt("PageHost.kt"), "releaseSoon");
+  const thaw = release.indexOf("nudge()");
+  const early = release.indexOf("if (webView == null || activity != null) return");
+  assert.ok(thaw >= 0 && early > thaw, "before the early return, so a page still in its activity gets it too");
+  assert.match(fn(kt("LocationService.kt"), "onDestroy"), /PageHost\.releaseSoon\(\)/);
+});

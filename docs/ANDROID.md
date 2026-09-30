@@ -223,6 +223,8 @@ well under a second.
   app leaves the screen when battery use is set to Restricted, the page is
   told, the share ends with a record (route `system`), and opening the app
   puts it back on.
+- A share that ends while nobody is looking wakes the page once more, so its
+  goodbye still reaches the circle before the page is let go.
 - Location switched off shows on the notification and on the line under your
   name, and the last position is not sent again as if it were live.
 - A minute with no fix at all wakes the phone and sends the last position

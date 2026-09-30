@@ -437,6 +437,8 @@ object PageHost {
     // own stop path still has a departure to get onto the relay, and killing
     // the WebView mid-flight would leave a live dot pointing at nobody.
     fun releaseSoon(delayMs: Long = 8000) {
+        // A frozen page cannot get its departure out, window or not.
+        nudge()
         if (webView == null || activity != null) return
         release?.let { main.removeCallbacks(it) }
         val r = Runnable { if (activity == null) destroy() }
