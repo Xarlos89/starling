@@ -18,8 +18,8 @@ only shows after that.
   it freezes during a share. On an Android 16 image, locked with the app open
   and moving for seven minutes, it posted 88 of 88 times, straight through
   the freeze. Before, the posts stopped at the freeze. The frozen page had
-  also stopped checking for an SOS from anyone else, and it keeps listening
-  now too.
+  also stopped checking for an SOS from anyone else, and while you share it
+  keeps listening now too.
 - **The same with the app swiped away.** A page with no window could never be
   woken, so "Keep sharing when the app is closed" had the same limit.
   Starling now keeps the page in a window of its own that never shows
