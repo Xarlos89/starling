@@ -3,7 +3,9 @@
 All notable changes to Starling are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
-## [Unreleased]
+## [0.14.0]
+
+Your position can go to your own server too, and the relay can run on one.
 
 - **Your own server.** Settings, Sharing can send your own position, in
   OwnTracks format, to a server you run, like Reitti, Dawarich, Home Assistant
