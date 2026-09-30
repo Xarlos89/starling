@@ -7,7 +7,7 @@ Your location is encrypted on your device with AES-256-GCM under a key only your
 No phone number. No email. No push tokens. Starling runs no analytics, no crash reporting, and makes no third party requests. The only thing it fetches from outside its own server is OpenStreetMap map tiles, and only if you leave the street basemap on. Switch to the Off-grid basemap and the app draws the map locally, with zero network requests.
 
 <b>A zero-knowledge relay</b>
-The relay is a small server that moves ciphertext between your circle's devices. It sees channel ids, message sizes (padded to a fixed length so they carry no information), timing, and IP addresses, but never a position, a name, or who is in your circle. Every row expires after 24 hours and there are no backups by design.
+The relay is a small server that moves ciphertext between your circle's devices. It sees channel ids, message sizes (padded to a fixed length so they carry no information), timing, and IP addresses, but never a position, a name, or who is in your circle. Every row expires after 24 hours and there are no backups by design. The default relay runs on Cloudflare Workers, so Cloudflare sees the same IP addresses and timing. Tor mode hides your IP from both.
 
 <b>Panic wipe</b>
 One action clears the app: local storage, cached data, everything. If you need to disappear from a circle fast, this is the button.
@@ -25,7 +25,7 @@ Hold to fire an SOS that your circle sees immediately. Check in with a status wi
 The Android app keeps sharing your location while your screen is off, with a persistent notification the whole time so it is never silent about what it is doing. Swiping the app away ends the share and it picks back up when you reopen Starling, or turn on "Keep sharing when the app is closed" in Settings and it carries on. Turn it off with one tap; your circle sees "stopped" instead of a dot that just goes stale.
 
 <b>Self-hostable</b>
-Don't want to trust our relay? Run your own. The app has a setting for a custom relay address, and the relay is open source and small enough to read in one sitting.
+Don't want to trust our relay? Run your own. The app has a setting for a custom relay address, and the relay is open source and small enough to read in one sitting. Today it runs on Cloudflare Workers, so hosting it yourself needs a Cloudflare account. A plain VPS or home server is not supported yet.
 
 <b>Works with Orbot</b>
 Per-app VPN mode needs no setup. Turn on Power User Mode in Orbot and Starling proxies directly through its SOCKS port instead.

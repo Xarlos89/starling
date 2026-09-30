@@ -65,7 +65,9 @@ sharing, and invites all follow whichever circle is active.
 - The relay is a small Cloudflare Worker with a D1 table of ciphertext rows.
   It knows channel ids, ciphertext sizes, timing, and IPs. It never learns
   where you are or who your circle is. Rows expire after 24 hours, swept
-  deterministically on every read and write.
+  deterministically on every read and write. Cloudflare hosts the default
+  relay, so it sees the same IPs and timing. Tor mode in the Android app's
+  Settings keeps your IP from both.
 - No push tokens, no analytics, no third party requests. The only external
   fetch in the whole app is OpenStreetMap tiles, and only when a street basemap
   is on; the Off-grid basemap renders locally and makes zero requests.
@@ -173,7 +175,10 @@ has the exact commands and what each suite covers.
 
 ## Deploy
 
-The relay and the app ship as one Cloudflare Worker with static assets. With a
+The relay and the app ship as one Cloudflare Worker with static assets, so
+self-hosting today means your own Cloudflare account (Workers and D1). A plain
+VPS or home server is not supported yet; that is
+[#9](https://github.com/munzzyy/starling/issues/9). With a
 Cloudflare API token in `CLOUDFLARE_API_TOKEN` (Workers Scripts, D1, and Account
 Settings read), one command creates the database, applies the schema, and
 deploys:

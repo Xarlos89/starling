@@ -24,7 +24,7 @@
 
 <p class="back"><a href="/">Starling</a></p>
 <h1>Privacy policy</h1>
-<p class="effective">Effective 2026-09-27</p>
+<p class="effective">Effective 2026-09-30</p>
 
 <p>Starling is a location sharing app built so that the people running it cannot
 see your location, and there is nothing to sell because there is nothing
@@ -60,6 +60,15 @@ and there are no backups kept beyond that window by design.</p>
 through the relay. If you also want the relay not to see yours, route the
 Android app through Orbot: there is a toggle in settings, and Orbot's
 per-app VPN mode works with no setup at all.</p>
+
+<h2>Who hosts the relay</h2>
+<p>The default relay runs on Cloudflare Workers, with its database in
+Cloudflare D1. Cloudflare carries every request to it, so Cloudflare sees
+the same things the relay does: IP addresses, timing, and ciphertext sizes.
+It cannot read the ciphertext any more than the relay can. The relay's own
+request logging on Cloudflare is switched off, but Cloudflare handles the
+traffic it carries under its own privacy policy. Routing the app through
+Orbot keeps your IP address from Cloudflare as well.</p>
 <h2>The website does not handle circles</h2>
 <p>Location sharing happens in the Starling apps only: the Android app, and an
 iOS app you can build from source. This website is a landing page and a
@@ -107,7 +116,9 @@ location even if compelled to hand over everything they have.</p>
 
 <h2>Self-hosting</h2>
 <p>The relay is open source. If you would rather not use the default relay
-at all, you can run your own and point the app at it in settings. This
+at all, you can run your own and point the app at it in settings. Today
+the relay runs on Cloudflare Workers, so running your own means your own
+Cloudflare account; a plain server of your own is not supported yet. This
 policy describes the default relay at starlingmap.app; a relay you run
 yourself is governed by whatever you choose to do with it.</p>
 
