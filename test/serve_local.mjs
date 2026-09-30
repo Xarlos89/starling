@@ -30,6 +30,7 @@ const TYPES = {
 
 // Mirrors app/_headers, which Workers assets applies in production.
 const STATIC_HEADERS = {
+  "cache-control": "public, max-age=0, must-revalidate, no-transform",
   "x-content-type-options": "nosniff",
   "x-frame-options": "DENY",
   "referrer-policy": "no-referrer",
