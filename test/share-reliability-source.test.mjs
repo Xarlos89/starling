@@ -132,7 +132,11 @@ test("the location switch is watched, and the notification says when it is off",
   const changed = fn(svc, "providersChanged");
   assert.match(changed, /put\("paused", if \(locationOff\) "location-off" else ""\)/);
   assert.match(changed, /nm\.notify\(NOTIF_ID, buildNotification\(\)\)/);
-  assert.match(fn(svc, "buildNotification"), /if \(locationOff\) R\.string\.notif_location_off else R\.string\.notif_text/);
+  const build = fn(svc, "buildNotification");
+  const off = build.indexOf("locationOff -> getString(R.string.notif_location_off)");
+  const fwd = build.indexOf("forwardHost != null -> getString(R.string.notif_text_forward, forwardHost)");
+  assert.ok(off >= 0 && fwd > off, "location off is said first, then your own server");
+  assert.match(build, /else -> getString\(R\.string\.notif_text\)/);
 });
 
 test("a service Android stops on its own is reported, and every stop this app makes says it was us", () => {

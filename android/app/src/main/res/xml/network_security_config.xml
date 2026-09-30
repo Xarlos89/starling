@@ -12,4 +12,11 @@
      terminates. -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="false" />
+    <!-- Debug builds only, and ignored by release: lets an emulator test trust
+         a throwaway CA for a local https receiver (docs/ANDROID.md). -->
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="user" />
+        </trust-anchors>
+    </debug-overrides>
 </network-security-config>

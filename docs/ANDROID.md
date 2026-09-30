@@ -142,6 +142,24 @@ client at it instead. This is the mechanism that keeps Starling out of
 F-Droid's "tethered to a specific server" anti-feature category: using our
 relay is a default, not a requirement.
 
+## Your own server
+
+Settings, Sharing, "Your own server" takes an https address and, while a share
+runs, posts the phone's own position to it in OwnTracks' HTTP format
+(`_type: location`, `lat`, `lon`, `tst`, `acc`, `alt`, `vel`, `cog`, `batt`), at
+most every 15 seconds. `Forward.kt` sends it, not the page: a page fetch would
+need CORS, which these servers do not answer, and the page can be frozen. A key
+in the query (`?api_key=`, `?token=`) works, which covers colota-forwarder,
+Reitti, Dawarich and Home Assistant's OwnTracks webhook. Nothing goes out while
+Tor mode is on.
+
+To test it on an emulator, debug builds trust user-added CAs
+(`debug-overrides` in `network_security_config.xml`, which release builds
+ignore). Make a throwaway CA and a certificate for `IP:10.0.2.2`, copy the CA
+to `/data/misc/user/0/cacerts-added/<subject_hash_old>.0` after `adb root`, run
+an https receiver on the host at port 8443, and set
+`https://10.0.2.2:8443/owntracks?api_key=test`.
+
 ## GrapheneOS and de-googled Android
 
 The app is built to run without Google anything, which makes GrapheneOS a

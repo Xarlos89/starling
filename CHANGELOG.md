@@ -3,6 +3,18 @@
 All notable changes to Starling are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
+## [Unreleased]
+
+- **Your own server.** Settings, Sharing can send your own position, in
+  OwnTracks format, to a server you run, like Reitti, Dawarich, Home Assistant
+  or colota-forwarder, while you share (#10). It goes straight from the phone
+  over https, at most every 15 seconds, and never while Tor mode is on. It is
+  loud on purpose. The sharing notification and the line under your name name
+  the server, and with the app lock on, changing it needs your passcode.
+- **A relay on your own server.** `node relay/server.mjs` runs the relay under
+  plain Node with a SQLite file, behind Apache or nginx, with no Cloudflare
+  account (#9). `docs/SELF-HOSTING.md` has the setup.
+
 ## [0.13.5]
 
 KC5YVV's Pixels were still going quiet the moment they were locked and put

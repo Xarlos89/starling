@@ -96,6 +96,18 @@ class LocationService : Service(), LocationListener {
 
         private var wake: PowerManager.WakeLock? = null
 
+        @Volatile
+        private var instance: LocationService? = null
+
+        // Only while a share runs: after it the notification must stay gone.
+        fun refreshNotification() {
+            val s = instance ?: return
+            if (!running) return
+            runCatching {
+                (s.getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(NOTIF_ID, s.buildNotification())
+            }
+        }
+
         fun start(ctx: Context) {
             ContextCompat.startForegroundService(ctx, Intent(ctx, LocationService::class.java))
         }
@@ -198,6 +210,7 @@ class LocationService : Service(), LocationListener {
         }
         if (!running) {
             stopAsked = false
+            Forward.shareStarted()
             startedAt = SystemClock.elapsedRealtime()
             lastFixAt = 0L
             fixes = 0
@@ -207,6 +220,7 @@ class LocationService : Service(), LocationListener {
             rewatches = 0
         }
         running = true
+        instance = this
         // startForeground itself throws if location permission vanished between
         // the activity's check and this callback; that stack is the framework's,
         // not the activity's try/catch, so it must be handled here.
@@ -298,6 +312,7 @@ class LocationService : Service(), LocationListener {
         if (location.hasSpeed()) fix.put("spd", location.speed.toDouble())
         if (location.hasBearing()) fix.put("hdg", location.bearing.toDouble())
         sink?.invoke(fix.toString())
+        Forward.maybeSend(this, location)
     }
 
     @Deprecated("Deprecated in Java")
@@ -371,6 +386,7 @@ class LocationService : Service(), LocationListener {
     override fun onDestroy() {
         val byUs = stopAsked
         running = false
+        if (instance === this) instance = null
         if (!byUs) {
             sink?.invoke(JSONObject().put("stopped", true).put("route", "system").toString())
             postShareEnded("system")
@@ -417,7 +433,12 @@ class LocationService : Service(), LocationListener {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) setAuthenticationRequired(true)
         }.build()
         // Private version only; the public one stays generic.
-        val text = getString(if (locationOff) R.string.notif_location_off else R.string.notif_text)
+        val forwardHost = if (Forward.torOn(this)) null else Forward.host(this)
+        val text = when {
+            locationOff -> getString(R.string.notif_location_off)
+            forwardHost != null -> getString(R.string.notif_text_forward, forwardHost)
+            else -> getString(R.string.notif_text)
+        }
         // Same strings both versions: already generic, nothing to redact here.
         val publicVersion = Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_starling)

@@ -6,6 +6,7 @@
     <string name="notif_sos_channel">Emergency alerts</string>
     <string name="notif_sos_text">Open Starling now.</string>
     <string name="notif_title">Sharing with your circle</string>
+    <string name="notif_text_forward">Also sending to %1$s. Tap Stop to end it.</string>
     <string name="notif_text">Tap Stop to end it.</string>
     <string name="notif_swiped_title">Sharing stopped</string>
     <string name="notif_swiped_text">Starling was closed. Open it again to keep sharing.</string>

@@ -535,6 +535,32 @@ and why none of it weakens the core claim (the relay never sees a position).
   not confidentiality risks, and are the user's own choice when they pick a
   relay to trust.
 
+## Your own server (Android)
+
+Settings, Sharing, "Your own server" sends your own position to an address you
+give, in OwnTracks' HTTP format, while a share runs. It is for people who
+already run Reitti, Dawarich, Home Assistant or an OwnTracks forwarder, so one
+app does the GPS work (#10).
+
+- It is plaintext by design. The server you point it at is yours and reads your
+  position, the way any OwnTracks server does. The relay's blindness does not
+  extend to it. Only your own position goes there, never your circle's.
+- It goes straight from the wrapper (`Forward.kt`), over https only, following
+  no redirects, at most once every 15 seconds, and only while the location
+  service runs, which is only during a share.
+- It never leaves outside Tor. With Tor mode on it sends nothing.
+- A second destination for a position is what someone with access to your
+  phone would set, so it is never quiet. The sharing notification names the
+  host (the private version; the lock screen version stays generic), so does
+  the line under your name, and with the app lock on, setting, changing or
+  clearing it needs the passcode. The duress passcode is refused there like
+  any wrong one.
+- The address, key included, sits in the wrapper's private preferences like
+  its other settings, outside the vault. Settings and the data export show the
+  host only, never the address, since servers put their key in its query. The
+  panic wipe clears it with everything else.
+- Your server gets your precise position whatever the precision setting.
+
 ## The iOS app's deltas
 
 The iOS app is the same `app/` code inside a WKWebView wrapper (`ios/`),

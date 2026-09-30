@@ -156,6 +156,20 @@ class StarlingBridge(private val app: Context) {
         LocationService.endShare(app, "lock", notify = !PageHost.windowShown)
     }
 
+    // ---------------------------------------------------- your own server
+
+    // The host only, never the address: servers put their key in its query.
+    @JavascriptInterface
+    fun forwardStatus(): String = Forward.status(app)
+
+    // "" stops it. The page asks for the passcode first when the app lock is on.
+    @JavascriptInterface
+    fun setForward(url: String?): Boolean {
+        val ok = Forward.set(app, url)
+        if (ok) LocationService.refreshNotification()
+        return ok
+    }
+
     // --------------------------------------------------- keeping the page up
 
     // Not document.visibilityState, which reads visible during a nudge.

@@ -105,6 +105,23 @@ export function shareUrlBase() {
 
 // A custom relay is an https URL, origin plus optional path, no credentials,
 // query, or fragment. Returns the normalized string or null on junk.
+// Forward.kt applies the same rule again natively, and its answer is the one that
+// counts. Path and query stay: servers put their key there.
+export function normalizeForward(value) {
+  if (typeof value !== "string") return null;
+  const s = value.trim();
+  if (!s || s.length > 2048) return null;
+  let u;
+  try {
+    u = new URL(s);
+  } catch {
+    return null;
+  }
+  if (u.protocol !== "https:" || !u.hostname) return null;
+  if (u.username || u.password || u.hash) return null;
+  return s;
+}
+
 export function normalizeRelay(value) {
   if (typeof value !== "string") return null;
   const s = value.trim().replace(/\/+$/, "");

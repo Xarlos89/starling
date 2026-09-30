@@ -1582,7 +1582,7 @@ function switchRow({ label, note, value, onChange }) {
 // A passcode entry sheet. `confirm` requires a matching second entry (used when
 // setting a new passcode). `onSubmit(passcode)` resolves true on success or
 // false to keep the sheet open with an error (e.g. a wrong current passcode).
-export function openPasscodeSheet({ title, intro, cta, confirm = false, current = false, minLen = 4, onSubmit, onClose }) {
+export function openPasscodeSheet({ title, intro, cta, confirm = false, current = false, minLen = 4, wrong, onSubmit, onClose }) {
   let succeeded = false;
   const ov = openOverlay({
     title,
@@ -1635,7 +1635,7 @@ export function openPasscodeSheet({ title, intro, cta, confirm = false, current 
         succeeded = true;
         ov.close();
       } else {
-        fail(current ? "That current passcode is wrong." : "Could not save. Try again.");
+        fail(current ? "That current passcode is wrong." : wrong || "Could not save. Try again.");
         busy = false;
         submit.disabled = false;
       }
@@ -1650,7 +1650,7 @@ export function openPasscodeSheet({ title, intro, cta, confirm = false, current 
   return ov;
 }
 
-export function openSettingsSheet({ api, values, demo, tor, keepSharing, background, lock, lockActions, onChange, onMembers, onInvite, onPlaces, onPanic, onLeave, onExport, onClose }) {
+export function openSettingsSheet({ api, values, demo, tor, keepSharing, background, forward, lock, lockActions, onChange, onMembers, onInvite, onPlaces, onPanic, onLeave, onExport, onClose }) {
   const ov = openOverlay({ title: "Settings", testid: "settings-sheet", className: "ov-settings", onClose });
   const b = ov.body;
 
@@ -1868,6 +1868,58 @@ export function openSettingsSheet({ api, values, demo, tor, keepSharing, backgro
         "p",
         "field-note",
         "For a bug report: versions, permissions, battery settings and counts. It has no locations, no keys and no names in it.",
+      ),
+    );
+    gShare.append(box);
+  }
+
+  // Once saved only the host shows: the address can carry a key.
+  if (forward) {
+    const box = el("div", "field");
+    box.dataset.testid = "settings-forward";
+    box.append(el("span", "field-label", "Your own server"));
+    const shown = el("div", "set-forward");
+    const input = el("input", "text-input");
+    input.type = "url";
+    input.placeholder = "https://your-server/owntracks?api_key=...";
+    input.autocomplete = "off";
+    input.dataset.testid = "forward-input";
+    const save = btn("btn btn-secondary", "Save");
+    save.dataset.testid = "forward-save";
+    const stop = btn("btn btn-secondary", "Stop sending");
+    stop.dataset.testid = "forward-stop";
+    const paint = () => {
+      const st = forward.status();
+      const kids = [];
+      if (st?.host) {
+        kids.push(el("p", "field-note", t("While you share, your position also goes to {host}.", { host: st.host })));
+        if (st.tor) kids.push(el("p", "field-note", "Paused while Tor mode is on, so nothing leaves this phone outside Tor."));
+        else if (st.last >= 200 && st.last < 300) kids.push(el("p", "field-note", "The last send worked."));
+        else if (st.last === -1) kids.push(el("p", "field-note", "The last send failed: the server did not answer."));
+        else if (st.last > 0) kids.push(el("p", "field-note", t("The last send failed: the server answered {code}.", { code: st.last })));
+      }
+      shown.replaceChildren(...kids);
+      stop.hidden = !st?.host;
+    };
+    save.addEventListener("click", async () => {
+      if (await forward.onSave(input.value)) {
+        input.value = "";
+        paint();
+      }
+    });
+    stop.addEventListener("click", async () => {
+      if (await forward.onStop()) paint();
+    });
+    paint();
+    box.append(
+      shown,
+      input,
+      save,
+      stop,
+      el(
+        "p",
+        "field-note",
+        "Sends your own position in OwnTracks format to a server you run, like Reitti, Dawarich or Home Assistant, only while you share. It goes straight from this phone, never through the relay, and your circle's positions never go there. The server gets your precise position whatever the precision setting. With the app lock on, changing it needs your passcode.",
       ),
     );
     gShare.append(box);

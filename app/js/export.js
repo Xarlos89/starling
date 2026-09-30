@@ -27,6 +27,7 @@ export function buildDataExport(src) {
     places,
     circles: (src.circles || []).map((c) => ({ name: c.name || null })),
     people,
+    ownServer: src.forwardHost ? { host: src.forwardHost } : null,
     note:
       "This is every category of data Starling keeps about you, held only on your device. " +
       "Positions are not in it because Starling does not store them: points live in memory and die with the session. " +

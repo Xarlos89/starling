@@ -99,7 +99,7 @@ import {
   zero,
 } from "./lock.js";
 import { createPlaceTracker, sanitizePlaces, newPlaceId, fenceSnap, DEFAULT_RADIUS } from "./places.js";
-import { debugHooks, apiUrl, isWrapped, isBundled, native, pageShown, shareUrlBase, normalizeRelay, setApiBase, shareCapable } from "./env.js";
+import { debugHooks, apiUrl, isWrapped, isBundled, native, pageShown, shareUrlBase, normalizeRelay, normalizeForward, setApiBase, shareCapable } from "./env.js";
 import {
   isSealedRecordError,
   GEN_SLOT,
@@ -714,6 +714,8 @@ function renderYou() {
   else if (sent?.stale) sub = t("Not reaching your circle");
   else sub = state.settings.precision === "coarse" ? t("Live · Neighborhood") : t("Live · Precise");
   if (sent && !locationPaused) sub += ` · ${sent.text}`;
+  const fwd = state.sharing && !state.demo ? forwardStatus() : null;
+  if (fwd?.host && !fwd.tor && !locationPaused) sub += ` · ${t("also to {host}", { host: fwd.host })}`;
   const myPlace = placeTracker.placeFor(SELF_KEY);
   if (myPlace && hasFix) sub = `${t("At {place}", { place: myPlace.name })} · ${sub}`;
   if (state.sharing && shareDeadline) {
@@ -4573,6 +4575,10 @@ async function openSettings() {
       tor,
       keepSharing,
       background,
+      forward:
+        typeof n?.setForward === "function" && typeof n?.forwardStatus === "function" && !state.demo
+          ? { status: () => forwardStatus(true), onSave: saveForward, onStop: () => saveForward("") }
+          : null,
       lock: {
         enabled: !!state.lock?.enabled,
         hasBio: !!state.lock?.bio,
@@ -4604,6 +4610,7 @@ async function openSettings() {
             places: state.places,
             circles: state.circles.map((c) => ({ name: c.name })),
             pinned: [...state.pinned.values()],
+            forwardHost: forwardStatus(true)?.host || null,
           }),
           null,
           2,
@@ -5020,6 +5027,74 @@ document.addEventListener("freeze", () => {
     // an older wrapper without the method
   }
 });
+
+// Your own server. A synchronous bridge call too, and render runs often.
+let forwardCache = null;
+let forwardAt = 0;
+
+function forwardStatus(force = false) {
+  const n = native();
+  if (typeof n?.forwardStatus !== "function") return null;
+  if (!force && forwardAt && Date.now() - forwardAt < 10000) return forwardCache;
+  try {
+    forwardCache = JSON.parse(n.forwardStatus());
+  } catch {
+    forwardCache = null;
+  }
+  forwardAt = Date.now();
+  return forwardCache;
+}
+
+// A hidden second destination for your position is what someone holding your
+// phone would set, so with the app lock on a change needs the passcode.
+async function saveForward(value) {
+  const n = native();
+  if (typeof n?.setForward !== "function") return false;
+  const url = value ? normalizeForward(value) : "";
+  if (url === null) {
+    ui.toast(t("Use a full https address, like https://your-server/owntracks"), "warn");
+    return false;
+  }
+  if (state.lock?.enabled && !(await confirmPasscode())) return false;
+  let saved = false;
+  try {
+    saved = !!n.setForward(url);
+  } catch {
+    saved = false;
+  }
+  forwardAt = 0;
+  if (!saved) {
+    ui.toast(t("That address did not work. Use a full https address."), "warn");
+    return false;
+  }
+  ui.toast(
+    url
+      ? t("While you share, your position also goes to {host}.", { host: new URL(url).hostname })
+      : t("Your position no longer goes to your own server."),
+  );
+  render();
+  return true;
+}
+
+function confirmPasscode() {
+  return new Promise((resolve) => {
+    ui.openPasscodeSheet({
+      title: "Enter your passcode",
+      intro: "Changing where your position goes needs your passcode.",
+      cta: "Continue",
+      wrong: t("That passcode is wrong."),
+      onSubmit: passcodeMatches,
+      onClose: (ok) => resolve(!!ok),
+    });
+  });
+}
+
+async function passcodeMatches(pc) {
+  const K = await openPasscodeRecord(state.lock.pass, pc);
+  if (!K) return false;
+  zero(K);
+  return true;
+}
 
 // A synchronous bridge call, and render runs often.
 let healthCache = null;
@@ -5957,6 +6032,12 @@ if (debugHooks()) window.__starlingInternals = {
   sendStatus: () => ({ busy: sendBusy, again: sendAgain, whenReady: sendWhenReady, stats: { ...shareStats }, locationPaused }),
   buildShareReport,
   healthCard,
+  saveForward,
+  forwardStatus,
+  passcodeMatches,
+  resetForwardCache: () => {
+    forwardAt = 0;
+  },
   hasSender: () => !!sender,
   teardownNet,
   resetShareResumeGuard: () => {
