@@ -130,7 +130,8 @@ class MainActivity : FragmentActivity() {
     // the window after we ask. Coming back to the app asks again.
     override fun onResume() {
         super.onResume()
-        backWhileSharing.isEnabled = LocationService.live
+        // On only: a share started a moment ago is not running yet, and the page's stop turns it off.
+        if (LocationService.live) backWhileSharing.isEnabled = true
         if (torEnabled()) OrbotStatus.ask(this)
     }
 

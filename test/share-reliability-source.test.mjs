@@ -196,7 +196,10 @@ test("Back during a share leaves the app instead of closing it, and a share its 
   assert.match(fn(act, "onCreate"), /onBackPressedDispatcher\.addCallback\(this, backWhileSharing\)/);
   assert.match(fn(act, "startShareService"), /LocationService\.start\(this\)\s*backWhileSharing\.isEnabled = true/);
   assert.match(fn(act, "cancelShareWhenShown"), /backWhileSharing\.isEnabled = false/);
-  assert.match(fn(act, "onResume"), /backWhileSharing\.isEnabled = LocationService\.live/);
+  // onResume runs straight after a start from the permission prompt or onStart, before the service is up.
+  const resume = fn(act, "onResume");
+  assert.match(resume, /if \(LocationService\.live\) backWhileSharing\.isEnabled = true/);
+  assert.doesNotMatch(resume, /backWhileSharing\.isEnabled = (?!true)/, "a start still on its way must not be switched back off");
   assert.match(fn(act, "onDestroy"), /if \(LocationService\.live\) LocationService\.endShare\(this, "swipe"\) else LocationService\.stop\(this\)/);
   assert.match(kt("LocationService.kt"), /val live: Boolean get\(\) = running && !stopAsked/);
 });
