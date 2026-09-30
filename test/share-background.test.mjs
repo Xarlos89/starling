@@ -143,6 +143,42 @@ test("every push is answered, with the posts still in flight, so the phone can s
   }
 });
 
+test("a clock refusal whose check never answers does not hold up the posts after it", async () => {
+  await sharing();
+  const realFetch = globalThis.fetch;
+  const realNow = Date.now;
+  const t0 = realNow();
+  let posts = 0;
+  let checks = 0;
+  globalThis.fetch = (url, opts) => {
+    if (opts?.method === "POST" && String(url).endsWith("/loc")) {
+      posts += 1;
+      const body = posts === 1 ? JSON.stringify({ error: "clock" }) : "{}";
+      return Promise.resolve(new Response(body, { status: posts === 1 ? 400 : 200 }));
+    }
+    // The clock check is the only GET with a deadline of its own; this one never answers.
+    if (opts?.signal && String(url).includes("?since=")) {
+      checks += 1;
+      return new Promise(() => {});
+    }
+    return realFetch(url, opts);
+  };
+  try {
+    globalThis.__starlingFix(fix());
+    await settle();
+    assert.equal(posts, 1);
+    assert.equal(checks, 1, "the refusal set off a clock check, with a deadline of its own");
+    Date.now = () => t0 + 5000;
+    globalThis.__starlingFix(fix());
+    await settle();
+    assert.equal(posts, 2, "the next fix posts while the check still hangs");
+    assert.equal(internals.sendStatus().busy, 0);
+  } finally {
+    Date.now = realNow;
+    globalThis.fetch = realFetch;
+  }
+});
+
 test("a minute with no fix resends the last position", async () => {
   await sharing();
   const held = holdPosts();

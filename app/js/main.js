@@ -4650,7 +4650,10 @@ async function measureClockSkew() {
   if (!chan) return null;
   try {
     const sent = Date.now();
-    const res = await fetch(apiUrl(`/api/v2/f/${chan}?since=${sent}`), { cache: "no-store" });
+    const res = await fetch(apiUrl(`/api/v2/f/${chan}?since=${sent}`), {
+      cache: "no-store",
+      signal: typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(10000) : undefined,
+    });
     const header = res.headers.get("date");
     if (!header) return null;
     const server = Date.parse(header);
@@ -5196,6 +5199,7 @@ async function sendLoc(force = false) {
     return;
   }
   if (!force && lastSentPos && Date.now() - lastSentPos.at < 3000) return;
+  // Every await while busy must settle by itself, or posting ends for good.
   if (sendBusy) {
     sendAgain = true;
     return;
@@ -5216,8 +5220,8 @@ async function sendLoc(force = false) {
       shareStats.lastErr = sendErrorKind(e);
       shareStats.lastErrAt = Date.now();
       // The poll loop surfaces ordinary connectivity trouble; a refused epoch is
-      // not ordinary and gets said out loud.
-      await noteSendFailure(e);
+      // not ordinary and gets said out loud. Not awaited: it measures over the network.
+      noteSendFailure(e).catch(() => {});
     }
     // Helpers watching the beacon get the same fixes as the circle.
     if (beacon) await pushBeacon();
