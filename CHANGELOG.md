@@ -3,7 +3,7 @@
 All notable changes to Starling are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
-## [Unreleased]
+## [0.13.5]
 
 KC5YVV's Pixels were still going quiet the moment they were locked and put
 down, and one of them drove twelve miles without a single update. 0.13.4
@@ -19,32 +19,38 @@ only shows after that.
   and moving for seven minutes, it posted 88 of 88 times, straight through
   the freeze. Before, the posts stopped at the freeze. The frozen page had
   also stopped checking for an SOS from anyone else, and while you share it
-  keeps listening now too.
-- **The same with the app swiped away.** A page with no window could never be
-  woken, so "Keep sharing when the app is closed" had the same limit.
+  keeps checking now too.
+- It works the same with the app swiped away. A page with no window could
+  never be woken, so "Keep sharing when the app is closed" had the same limit.
   Starling now keeps the page in a window of its own that never shows
   anything. Tested on Android 10 and 16.
-- **A share no longer ends in silence.** With battery use set to Restricted,
-  Android stops a share about a minute after you leave the app, and the app
-  kept saying "Sharing live". Opened from its notification, Starling also
-  closed on Back and took the share with it. Now Back leaves the app the way
-  Home does, and when Android stops a share you get a notice, opening the app
-  puts it back on, and a card says how to keep it from happening.
-- **You can see how a share is going.** The line under your name says when
-  your last position went out once that is more than a minute ago, and stops
-  saying "Live" when your circle has stopped hearing from you. Location
-  switched off is said there and on the notification, and your circle sees
-  you go quiet instead of a live dot where you used to be.
+- **Android stopping a share is no longer silent.** With battery use set to
+  Restricted, Android stops a share about a minute after you leave the app,
+  and the app kept saying "Sharing live". Opened from its notification,
+  Starling also closed on Back and took the share with it. Back now leaves the
+  app the way Home does. When Android stops a share you get a notice, opening
+  the app puts it back on, and a card says how to keep it from happening.
+- **Neither is the app lock.** A locked Starling holds no keys, so with "Keep
+  sharing when the app is closed" off, the auto-lock has to end a share. It
+  did that without a word, and the goodbye to your circle was cut off before
+  it left, so they saw a dot that stopped moving. The goodbye goes out first
+  now, you get a notice, and getting back into the app puts the share back on. Starting a
+  share with the lock on shows a card with one tap to keep sharing instead.
+- The line under your name says when your last position went out once that is
+  more than a minute ago, and stops saying "Live" when your circle has stopped
+  hearing from you. Location switched off is said there and on the
+  notification, and your circle sees you go quiet instead of a live dot where
+  you used to be.
 - **The panic wipe inside the app works again.** Since 0.13.0 it failed
   whenever it ran from inside the app, the duress passcode included: the
   wrapper tried to take the page down from the wrong thread and stopped there.
   The page still erased its own storage, but nothing else went. Cached map
-  tiles of where your circle had been, the biometric unlock key and the
-  settings the Android side keeps all stayed on the phone, a running share
-  kept going with the phone held awake, and the app sat on an error page until
-  it was force stopped. It now stops the share and clears everything, and the
-  app closes. The PanicKit trigger left the notification channels behind when
-  it fired during a share, and no longer does.
+  tiles of where your circle had been, the biometric key and the settings the
+  Android side keeps all stayed on the phone, a running share kept going with
+  the phone held awake, and the app sat on an error page until it was force
+  stopped. It now stops the share and clears everything, and the app closes.
+  The PanicKit trigger left the notification channels behind when it fired
+  during a share, and no longer does.
 
 On a phone that optimizes Starling's battery use, starting a share now asks
 once whether it may run in the background. "Not now" is final, and Settings
@@ -55,8 +61,10 @@ with nothing in it that says where you are or who is in your circle.
 Smaller fixes on the same path: the phone stays awake just long enough to post
 each position, a position that arrives while new keys are being adopted waits
 for them instead of being dropped, a slow network no longer queues one post
-per fix, and the app lock now locks on the way back in if a frozen page slept
-through its timer.
+per fix, the app lock locks on the way back in if a frozen page slept through
+its timer, and opening the app in the second the page is awake no longer
+skips what the app does when you come back to it. The notice after a stop
+only says the app was closed when it was.
 
 ## [0.13.4]
 

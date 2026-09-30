@@ -149,6 +149,13 @@ class StarlingBridge(private val app: Context) {
         LocationService.stop(app)
     }
 
+    // The app lock ends a share, since a locked page holds no keys. It leaves the
+    // trace Android's own ends leave, and a notice when nobody is looking.
+    @JavascriptInterface
+    fun shareEndedByLock() {
+        LocationService.endShare(app, "lock", notify = !PageHost.windowShown)
+    }
+
     // --------------------------------------------------- keeping the page up
 
     // Not document.visibilityState, which reads visible during a nudge.

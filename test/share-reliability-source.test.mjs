@@ -249,3 +249,27 @@ test("a share that ends behind a frozen page thaws it once, so the goodbye still
   assert.ok(thaw >= 0 && early > thaw, "before the early return, so a page still in its activity gets it too");
   assert.match(fn(kt("LocationService.kt"), "onDestroy"), /PageHost\.releaseSoon\(\)/);
 });
+
+test("opening the app mid-thaw still gives the page a return it can see", () => {
+  const shown = fn(kt("PageHost.kt"), "setShown");
+  const at = shown.indexOf("if (nudging)");
+  assert.ok(at >= 0, "setShown looks for a thaw in progress");
+  const body = shown.slice(at);
+  const gone = body.indexOf("dispatchWindowVisibilityChanged(View.GONE)");
+  const real = body.indexOf("dispatchWindowVisibilityChanged(v.windowVisibility)");
+  assert.ok(gone >= 0 && real > gone, "hidden first, then the window's real state");
+});
+
+test("the notice after a stop only says the app was closed when it was", () => {
+  const rec = fn(kt("LocationService.kt"), "recordEnded");
+  assert.match(rec, /if \(route == "swipe"\) R\.string\.notif_swiped_text else R\.string\.notif_locked_text/);
+  assert.match(rec, /if \(!notify\) return/);
+  const put = rec.indexOf("PREF_STOP_ROUTE");
+  assert.ok(put >= 0 && put < rec.indexOf("if (!notify) return"), "the record goes down even with no notice");
+});
+
+test("the app lock ending a share leaves a record, and a notice only when nobody is looking", () => {
+  const bridge = fn(kt("StarlingBridge.kt"), "shareEndedByLock");
+  assert.match(bridge, /LocationService\.endShare\(app, "lock", notify = !PageHost\.windowShown\)/);
+  assert.match(kt("StarlingBridge.kt"), /@JavascriptInterface\s+fun shareEndedByLock\(\)/);
+});

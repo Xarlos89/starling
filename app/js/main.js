@@ -702,7 +702,8 @@ function renderYou() {
       ? sentNote({ lastOkAt: shareStats.lastOkAt, startedAt: shareStats.startedAt, now: Date.now(), staleMs: STALE_MS })
       : null;
   if (!state.sharing) sub = t("Not sharing");
-  else if (locationPaused) sub = t("Location is off on this phone. Turn it on to keep sharing.");
+  else if (locationPaused)
+    sub = state.sosActive ? t("SOS armed · Location is off") : t("Location is off on this phone. Turn it on to keep sharing.");
   else if (state.sosActive)
     sub = !hasFix
       ? t("SOS armed · Locating...")
@@ -807,20 +808,30 @@ function alertItems() {
     const route = state.stopRecord.route;
     const back = state.sharing && (route === "swipe" ? shareResumed : true);
     const restricted = route === "system" && currentHealth()?.battery === "restricted";
+    const offerKeep = route === "lock" && canKeepSharing() && !keptPastClose();
+    const lockText = [
+      t("Starling locked itself while you were away, and a locked Starling holds no keys, so the lock ended your share."),
+      back ? t("Unlocking put it back on.") : "",
+      offerKeep ? t("Tap Keep sharing to let shares run while Starling is closed or locked. The lock then waits until the share ends.") : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
     const text =
-      route === "swipe"
-        ? back
-          ? t("The app was closed while sharing was on, which stopped it, and opening it again put it back on. If closing it was not you, check who has access to this phone.")
-          : t("The app was closed while sharing was on, which stops it every time. If that was not you, check who has access to this phone.")
-        : route === "renderer"
-          ? t("Android shut down the part of Starling that sends your position, so the share stopped. Nobody did this by hand.")
-          : route === "system"
-            ? restricted
-              ? t("Android stopped Starling in the background because its battery use is set to Restricted, and that ends every share a minute after you leave the app. Set it to Unrestricted in the app's settings.")
-              : t("Android stopped Starling in the background, so the share ended. Nobody did this by hand.")
-            : route === "stalled"
-              ? t("Android kept Starling from running in the background, so your circle stopped getting your location and the share ended. Nobody did this by hand.")
-              : t("Someone tapped Stop on the sharing notification. If that was not you, check who has access to this phone.");
+      route === "lock"
+        ? lockText
+        : route === "swipe"
+          ? back
+            ? t("The app was closed while sharing was on, which stopped it, and opening it again put it back on. If closing it was not you, check who has access to this phone.")
+            : t("The app was closed while sharing was on, which stops it every time. If that was not you, check who has access to this phone.")
+          : route === "renderer"
+            ? t("Android shut down the part of Starling that sends your position, so the share stopped. Nobody did this by hand.")
+            : route === "system"
+              ? restricted
+                ? t("Android stopped Starling in the background because its battery use is set to Restricted, and that ends every share a minute after you leave the app. Set it to Unrestricted in the app's settings.")
+                : t("Android stopped Starling in the background, so the share ended. Nobody did this by hand.")
+              : route === "stalled"
+                ? t("Android kept Starling from running in the background, so your circle stopped getting your location and the share ended. Nobody did this by hand.")
+                : t("Someone tapped Stop on the sharing notification. If that was not you, check who has access to this phone.");
     const actions = [
       {
         label: "Got it",
@@ -835,12 +846,46 @@ function alertItems() {
     if (restricted) {
       actions.unshift({ label: "Open app settings", variant: "btn-primary", testid: "alert-stop-battery", onClick: openBatterySettings });
     }
+    if (offerKeep) {
+      actions.unshift({
+        label: "Keep sharing",
+        variant: "btn-primary",
+        testid: "alert-stop-keep-sharing",
+        onClick: () => {
+          keepSharingFromCard();
+          state.stopRecord = null;
+          native()?.clearStopRecord?.();
+          render();
+        },
+      });
+    }
     items.push({
       id: "stop-record",
       kind: "warn",
-      title: t("Your last share was stopped outside the app"),
+      title: route === "lock" ? t("The app lock ended your share") : t("Your last share was stopped outside the app"),
       text: route === "system" || route === "stalled" ? (back ? `${text} ${t("It is back on now that the app is open.")}` : text) : text,
       actions,
+    });
+  }
+
+  if (
+    state.sharing &&
+    !state.locked &&
+    state.lock?.enabled &&
+    !state.settings.lockShareNoted &&
+    state.stopRecord?.route !== "lock" &&
+    canKeepSharing() &&
+    !keptPastClose()
+  ) {
+    items.push({
+      id: "lock-share",
+      kind: "info",
+      title: t("The app lock will end this share"),
+      text: `${t("Starling locks itself after a while in the background, and a locked Starling holds no keys, so the lock would end this share.")} ${t("Tap Keep sharing to let shares run while Starling is closed or locked. The lock then waits until the share ends.")}`,
+      actions: [
+        { label: "Keep sharing", variant: "btn-primary", testid: "alert-lock-share-keep", onClick: keepSharingFromCard },
+        { label: "Not now", testid: "alert-lock-share-later", onClick: markLockShareNoted },
+      ],
     });
   }
 
@@ -2986,6 +3031,8 @@ function lockNow() {
   clearLockTimer();
   hiddenAt = 0;
   if (state.sharing) {
+    // Only when the person is back and the lock cannot wait; lockAway ends it first otherwise.
+    noteLockEnded();
     // Caption first, so the bye goes out clean rather than carrying a stale
     // claim into the last message anyone sees from this device.
     clearCaption();
@@ -3191,12 +3238,64 @@ function armAutoLock() {
     return;
   }
   if (!hiddenAt) hiddenAt = Date.now();
-  if (lockTimer) return;
+  if (lockTimer || lockingAway) return;
   const left = Math.max(0, state.lock.autolockMs - (Date.now() - hiddenAt));
   lockTimer = setTimeout(() => {
     lockTimer = 0;
-    lockNow();
+    lockAway().catch(() => lockNow());
   }, left);
+}
+
+// A locked Starling holds no keys, so a share cannot outlive the lock. With
+// nobody looking the lock can wait a moment: the share ends the way Android
+// ending it does, bye first, a record and a notice, and it comes back after
+// unlock. Someone who comes back meanwhile gets the lock at once.
+let lockingAway = false;
+const LOCK_BYE_WAIT_MS = 5000;
+
+async function lockAway() {
+  if (!state.lock?.enabled || state.locked || lockingAway) return;
+  if (state.sharing && !state.demo) {
+    lockingAway = true;
+    try {
+      noteLockEnded();
+      const bye = setSharing(false, { keepArmed: true });
+      await Promise.race([bye, new Promise((r) => setTimeout(r, LOCK_BYE_WAIT_MS))]);
+    } finally {
+      lockingAway = false;
+    }
+  }
+  lockNow();
+}
+
+function noteLockEnded() {
+  state.stopRecord = { route: "lock", at: Date.now() };
+  shareResumeTried = false;
+  callNative("shareEndedByLock");
+}
+
+function canKeepSharing() {
+  return typeof native()?.setKeepSharing === "function" && !state.demo;
+}
+
+function keepSharingFromCard() {
+  try {
+    native()?.setKeepSharing?.(true);
+  } catch {
+    // an older wrapper; the switch in Settings says the same
+  }
+  markLockShareNoted();
+  // A timer already counting would still end the share.
+  armAutoLock();
+  ui.toast(t("Shares now keep running while Starling is closed or locked."));
+}
+
+function markLockShareNoted() {
+  if (!state.settings.lockShareNoted) {
+    state.settings = { ...state.settings, lockShareNoted: true };
+    dbSet("settings", state.settings).catch(() => {});
+  }
+  render();
 }
 
 function keptPastClose() {
@@ -4769,7 +4868,7 @@ async function setSharing(on, { keepArmed = false } = {}) {
 // share ends. A share the person ended themselves is never recorded.
 const SHARE_ARMED = "shareArmed";
 
-const STOP_ROUTES = new Set(["notif", "swipe", "renderer", "system", "stalled"]);
+const STOP_ROUTES = new Set(["notif", "swipe", "renderer", "system", "stalled", "lock"]);
 
 async function armShare() {
   try {
@@ -4837,11 +4936,13 @@ async function resumeShareIfArmed() {
   if (!state.sharing) return false; // permission gone, startWatch refused
   if (armed.deadline) setShareWindow(Math.max(1000, armed.deadline - Date.now()));
   shareResumed = true;
-  const byAndroid = state.stopRecord?.route === "system" || state.stopRecord?.route === "stalled";
+  const ended = (Number(state.stopRecord?.at) || 0) >= (armed.at || 0) ? state.stopRecord?.route : null;
   ui.toast(
-    byAndroid
+    ended === "system" || ended === "stalled"
       ? t("Android had stopped your share in the background. It is back on.")
-      : t("Sharing was on when the app closed, so it is back on."),
+      : ended === "lock"
+        ? t("The app lock had ended your share. It is back on.")
+        : t("Sharing was on when the app closed, so it is back on."),
   );
   render();
   return true;

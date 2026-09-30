@@ -107,8 +107,8 @@ class LocationService : Service(), LocationListener {
 
         // Ends a share for a reason the person did not choose, leaving the same
         // trace a swipe or the notification's Stop leaves.
-        fun endShare(ctx: Context, route: String) {
-            recordEnded(ctx, route)
+        fun endShare(ctx: Context, route: String, notify: Boolean = true) {
+            recordEnded(ctx, route, notify)
             stop(ctx)
         }
 
@@ -136,15 +136,18 @@ class LocationService : Service(), LocationListener {
         // record, not the notification, that has to survive. It lives in the
         // same private prefs file the whole app data directory does, so a panic
         // wipe's clearApplicationUserData takes it with everything else.
-        private fun recordEnded(ctx: Context, route: String) {
+        private fun recordEnded(ctx: Context, route: String, notify: Boolean = true) {
             ctx.getSharedPreferences(MainActivity.PREFS, MODE_PRIVATE).edit()
                 .putString(MainActivity.PREF_STOP_ROUTE, route)
                 .putLong(MainActivity.PREF_STOP_TS, System.currentTimeMillis())
                 .apply()
+            if (!notify) return
+            // Only a swipe closed the app. The card inside says what the other routes were.
+            val text = if (route == "swipe") R.string.notif_swiped_text else R.string.notif_locked_text
             Events.post(
                 ctx,
                 ctx.getString(R.string.notif_swiped_title),
-                ctx.getString(R.string.notif_swiped_text),
+                ctx.getString(text),
                 "share-ended",
             )
         }

@@ -2070,7 +2070,7 @@ export function openSettingsSheet({ api, values, demo, tor, keepSharing, backgro
       gLock.append(
         segControl({
           label: "Auto-lock",
-          note: "Relock after the app has been in the background this long.",
+          note: "Relock after the app has been in the background this long. Locking ends a share unless Keep sharing when the app is closed is on.",
           options: [
             { value: "0", label: "Now" },
             { value: "60000", label: "1 min" },
