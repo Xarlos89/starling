@@ -133,16 +133,54 @@ class StarlingBridge(private val app: Context) {
 
     // ------------------------------------------------------------- location
 
+    // From the background this threw and the page forgot its share; now it waits for the window.
     @JavascriptInterface
     fun startLocation() {
-        ui { it.startShareFlow() }
+        ui { a ->
+            if (PageHost.windowShown && PageHost.activity === a) a.startShareFlow()
+            else a.startShareWhenShown()
+        }
     }
 
     // Stopping needs no window: a timed share can run out, or the person can
     // stop from the notification, with nothing on screen.
     @JavascriptInterface
     fun stopLocation() {
+        activity?.let { a -> a.runOnUiThread { a.cancelShareWhenShown() } }
         LocationService.stop(app)
+    }
+
+    // --------------------------------------------------- keeping the page up
+
+    // Not document.visibilityState, which reads visible during a nudge.
+    @JavascriptInterface
+    fun windowShown(): Boolean = PageHost.windowShown
+
+    @JavascriptInterface
+    fun pageFrozen() = PageHost.frozen()
+
+    // `busy` posts still in flight; at zero the phone may sleep.
+    @JavascriptInterface
+    fun pulse(busy: Int) {
+        PageHost.pulse()
+        if (busy <= 0) LocationService.letSleep()
+    }
+
+    @JavascriptInterface
+    fun health(): String = Health.snapshot(app)
+
+    // "unrestricted", "optimized" or "restricted".
+    @JavascriptInterface
+    fun batteryState(): String = Health.batteryState(app)
+
+    @JavascriptInterface
+    fun askBatteryExemption() {
+        ui { it.askBatteryExemption() }
+    }
+
+    @JavascriptInterface
+    fun openBatterySettings() {
+        ui { it.openBatterySettings() }
     }
 
     // ------------------------------------------------- keep sharing when closed

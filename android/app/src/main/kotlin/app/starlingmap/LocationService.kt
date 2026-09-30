@@ -1,12 +1,15 @@
 package app.starlingmap
 
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.location.Location
 import android.location.LocationListener
@@ -14,6 +17,8 @@ import android.location.LocationManager
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import android.os.PowerManager
+import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import org.json.JSONObject
 
@@ -33,6 +38,7 @@ class LocationService : Service(), LocationListener {
         const val CHANNEL = "share"
         private const val NOTIF_ID = 1
         private const val ACTION_STOP = "app.starlingmap.STOP_SHARE"
+        private const val ACTION_TICK = "app.starlingmap.SHARE_TICK"
         private const val MIN_TIME_MS = 3000L
         private const val MIN_DIST_M = 5f
         // A phone lying still passes no distance filter, so without this the
@@ -41,6 +47,15 @@ class LocationService : Service(), LocationListener {
         // This listener has no distance filter and wakes the page at least
         // once per send interval.
         private const val HEARTBEAT_MS = 15000L
+
+        // The heartbeat needs a fix to fire, and indoors on GPS alone there is none.
+        private const val TICK_MS = 60000L
+
+        // Silence this long with location on renews the requests.
+        private const val REWATCH_MS = 5 * 60000L
+
+        // Ceiling only: the page lets go as soon as its post settles.
+        private const val FIX_WAKE_MS = 30000L
 
         // The activity plants a sink to push fixes into the page. Static is
         // fine: one process, one WebView.
@@ -53,11 +68,40 @@ class LocationService : Service(), LocationListener {
         @Volatile
         var running = false
 
+        // Set by every stop this app asks for, so an unmarked stop is Android's.
+        // Only the service clears it: start() clearing it misread a quick off and on.
+        @Volatile
+        private var stopAsked = false
+
+        // A share still running that nobody has asked to stop.
+        val live: Boolean get() = running && !stopAsked
+
+        // Sharing report counts. Never a position.
+        @Volatile var startedAt = 0L
+            private set
+        @Volatile var lastFixAt = 0L
+            private set
+        @Volatile var fixes = 0
+            private set
+        @Volatile var gpsFixes = 0
+            private set
+        @Volatile var networkFixes = 0
+            private set
+        @Volatile var ticks = 0
+            private set
+        @Volatile var rewatches = 0
+            private set
+        @Volatile var locationOff = false
+            private set
+
+        private var wake: PowerManager.WakeLock? = null
+
         fun start(ctx: Context) {
             ContextCompat.startForegroundService(ctx, Intent(ctx, LocationService::class.java))
         }
 
         fun stop(ctx: Context) {
+            stopAsked = true
             ctx.stopService(Intent(ctx, LocationService::class.java))
         }
 
@@ -66,6 +110,24 @@ class LocationService : Service(), LocationListener {
         fun endShare(ctx: Context, route: String) {
             recordEnded(ctx, route)
             stop(ctx)
+        }
+
+        // Not reference counted: each fix pushes the deadline out, one release ends it.
+        fun holdAwake(ctx: Context, ms: Long = FIX_WAKE_MS) {
+            if (!running) return
+            synchronized(this) {
+                val w = wake ?: (ctx.applicationContext.getSystemService(POWER_SERVICE) as PowerManager)
+                    .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "starling:share")
+                    .apply { setReferenceCounted(false) }
+                    .also { wake = it }
+                w.acquire(ms)
+            }
+        }
+
+        fun letSleep() {
+            synchronized(this) {
+                wake?.takeIf { it.isHeld }?.release()
+            }
         }
 
         // The record goes down BEFORE the notification: that notification can
@@ -88,6 +150,9 @@ class LocationService : Service(), LocationListener {
     }
 
     private var watching = false
+    private var providers: List<String> = emptyList()
+    private var tickArmed = false
+    private var watchedAt = 0L
 
     // Spelled out rather than a lambda: on API 29 the other callbacks are not
     // default methods yet, and the platform calls them.
@@ -98,30 +163,53 @@ class LocationService : Service(), LocationListener {
         override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {
         }
 
-        override fun onProviderEnabled(provider: String) {
-        }
+        override fun onProviderEnabled(provider: String) = providersChanged()
 
-        override fun onProviderDisabled(provider: String) {
-        }
+        override fun onProviderDisabled(provider: String) = providersChanged()
+    }
+
+    private val tickIntent by lazy {
+        PendingIntent.getBroadcast(
+            this,
+            3,
+            Intent(ACTION_TICK).setPackage(packageName),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+    }
+
+    private val tickReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) = onTick()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        running = true
         if (intent?.action == ACTION_STOP) {
             // A user action, not a failure: the page turns sharing off cleanly.
+            stopAsked = true
             sink?.invoke(JSONObject().put("stopped", true).toString())
             postShareEnded("notif")
             stopSelf()
             return START_NOT_STICKY
         }
+        if (!running) {
+            stopAsked = false
+            startedAt = SystemClock.elapsedRealtime()
+            lastFixAt = 0L
+            fixes = 0
+            gpsFixes = 0
+            networkFixes = 0
+            ticks = 0
+            rewatches = 0
+        }
+        running = true
         // startForeground itself throws if location permission vanished between
         // the activity's check and this callback; that stack is the framework's,
         // not the activity's try/catch, so it must be handled here.
         try {
             startForeground(NOTIF_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
         } catch (e: Exception) {
+            stopAsked = true
             sink?.invoke(JSONObject().put("error", "location service refused: ${e.message}").put("code", 2).toString())
             stopSelf()
             return START_NOT_STICKY
@@ -139,29 +227,65 @@ class LocationService : Service(), LocationListener {
         // alone even when that means slower or no indoor lock.
         val torOn = getSharedPreferences(MainActivity.PREFS, MODE_PRIVATE)
             .getBoolean(MainActivity.PREF_TOR, false)
-        val providers =
+        val wanted =
             if (torOn) listOf(LocationManager.GPS_PROVIDER)
             else listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
-        var any = false
-        for (provider in providers) {
-            if (!lm.allProviders.contains(provider)) continue
+        val got = request(lm, wanted.filter { lm.allProviders.contains(it) })
+        if (got.isEmpty()) {
+            noProvider()
+            return
+        }
+        providers = got
+        watching = true
+        ContextCompat.registerReceiver(
+            this,
+            tickReceiver,
+            IntentFilter(ACTION_TICK),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        armTick()
+        // Location already off at the start is reported like a switch mid-share.
+        providersChanged(force = true)
+    }
+
+    private fun request(lm: LocationManager, wanted: List<String>): List<String> {
+        val got = mutableListOf<String>()
+        for (provider in wanted) {
             try {
                 lm.requestLocationUpdates(provider, MIN_TIME_MS, MIN_DIST_M, this, mainLooper)
                 lm.requestLocationUpdates(provider, HEARTBEAT_MS, 0f, heartbeat, mainLooper)
-                any = true
+                got += provider
             } catch (e: SecurityException) {
                 // permission revoked between the page's start call and here
             }
         }
-        if (!any) {
-            sink?.invoke(JSONObject().put("error", "no location provider").put("code", 2).toString())
-            stopSelf()
-            return
-        }
-        watching = true
+        watchedAt = SystemClock.elapsedRealtime()
+        return got
+    }
+
+    private fun noProvider() {
+        stopAsked = true
+        sink?.invoke(JSONObject().put("error", "no location provider").put("code", 2).toString())
+        stopSelf()
+    }
+
+    private fun rewatch() {
+        val lm = getSystemService(LOCATION_SERVICE) as LocationManager
+        lm.removeUpdates(this)
+        lm.removeUpdates(heartbeat)
+        rewatches++
+        if (request(lm, providers).isEmpty()) noProvider()
     }
 
     override fun onLocationChanged(location: Location) {
+        // Android drops its own wake lock the moment this returns.
+        holdAwake(this)
+        lastFixAt = SystemClock.elapsedRealtime()
+        fixes++
+        when (location.provider) {
+            LocationManager.GPS_PROVIDER -> gpsFixes++
+            LocationManager.NETWORK_PROVIDER -> networkFixes++
+        }
         val fix = JSONObject()
             .put("lat", location.latitude)
             .put("lon", location.longitude)
@@ -176,10 +300,46 @@ class LocationService : Service(), LocationListener {
     override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {
     }
 
-    override fun onProviderEnabled(provider: String) {
+    // The requests pause and resume with the switch by themselves; this only says so.
+    override fun onProviderEnabled(provider: String) = providersChanged()
+
+    override fun onProviderDisabled(provider: String) = providersChanged()
+
+    private fun providersChanged(force: Boolean = false) {
+        if (!watching) return
+        val lm = getSystemService(LOCATION_SERVICE) as LocationManager
+        val on = providers.any { runCatching { lm.isProviderEnabled(it) }.getOrDefault(false) }
+        if (!force && on == !locationOff) return
+        locationOff = !on
+        sink?.invoke(JSONObject().put("paused", if (locationOff) "location-off" else "").toString())
+        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        runCatching { nm.notify(NOTIF_ID, buildNotification()) }
     }
 
-    override fun onProviderDisabled(provider: String) {
+    private fun armTick() {
+        val am = getSystemService(ALARM_SERVICE) as AlarmManager
+        runCatching {
+            am.setAndAllowWhileIdle(
+                AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                SystemClock.elapsedRealtime() + TICK_MS,
+                tickIntent,
+            )
+            tickArmed = true
+        }
+    }
+
+    private fun onTick() {
+        if (!running || !watching) return
+        // Only a tick with news takes the wake lock; never release one a post holds.
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastFixAt >= TICK_MS) {
+            ticks++
+            holdAwake(this)
+            sink?.invoke(JSONObject().put("tick", true).toString())
+        }
+        if (!locationOff && now - maxOf(lastFixAt, watchedAt) >= REWATCH_MS) rewatch()
+        PageHost.checkPage()
+        armTick()
     }
 
     // Swiping the app out of recents kills the page that encrypts and posts
@@ -194,6 +354,7 @@ class LocationService : Service(), LocationListener {
             super.onTaskRemoved(rootIntent)
             return
         }
+        stopAsked = true
         postShareEnded("swipe")
         stopSelf()
         super.onTaskRemoved(rootIntent)
@@ -204,7 +365,13 @@ class LocationService : Service(), LocationListener {
     private fun postShareEnded(route: String) = recordEnded(this, route)
 
     override fun onDestroy() {
+        val byUs = stopAsked
         running = false
+        if (!byUs) {
+            sink?.invoke(JSONObject().put("stopped", true).put("route", "system").toString())
+            postShareEnded("system")
+        }
+        stopAsked = false
         // A share that ends with nothing on screen takes the page with it. Not
         // instantly: its stop path still has a departure to get onto the relay.
         PageHost.releaseSoon()
@@ -212,8 +379,15 @@ class LocationService : Service(), LocationListener {
             val lm = getSystemService(LOCATION_SERVICE) as LocationManager
             lm.removeUpdates(this)
             lm.removeUpdates(heartbeat)
+            runCatching { unregisterReceiver(tickReceiver) }
             watching = false
         }
+        if (tickArmed) {
+            runCatching { (getSystemService(ALARM_SERVICE) as AlarmManager).cancel(tickIntent) }
+            tickArmed = false
+        }
+        locationOff = false
+        letSleep()
         super.onDestroy()
     }
 
@@ -238,6 +412,8 @@ class LocationService : Service(), LocationListener {
             // Android 12+ only, see THREAT-MODEL.md for the pre-12 gap.
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) setAuthenticationRequired(true)
         }.build()
+        // Private version only; the public one stays generic.
+        val text = getString(if (locationOff) R.string.notif_location_off else R.string.notif_text)
         // Same strings both versions: already generic, nothing to redact here.
         val publicVersion = Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_starling)
@@ -249,9 +425,10 @@ class LocationService : Service(), LocationListener {
         return Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_starling)
             .setContentTitle(getString(R.string.notif_title))
-            .setContentText(getString(R.string.notif_text))
+            .setContentText(text)
             .setContentIntent(open)
             .setOngoing(true)
+            .setOnlyAlertOnce(true)
             .setVisibility(Notification.VISIBILITY_PRIVATE)
             .setPublicVersion(publicVersion)
             .addAction(stopAction)

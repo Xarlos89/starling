@@ -4,10 +4,14 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import android.view.WindowManager
 import android.webkit.GeolocationPermissions
 import android.webkit.WebView
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
@@ -46,6 +50,17 @@ class MainActivity : FragmentActivity() {
 
     // Set while a location permission request is in flight for the share flow.
     private var pendingShareStart = false
+
+    // Android refuses a location service started from the background, so it waits for onStart.
+    private var startWhenShown = false
+
+    // Back finishes an activity not opened from home, and the share with it; while
+    // one runs, Back leaves the way Home does.
+    private val backWhileSharing = object : OnBackPressedCallback(false) {
+        override fun handleOnBackPressed() {
+            moveTaskToBack(true)
+        }
+    }
     private var pendingGeoCallback: Pair<String, GeolocationPermissions.Callback>? = null
 
     private val locationPermission = registerForActivityResult(
@@ -79,6 +94,7 @@ class MainActivity : FragmentActivity() {
         window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
 
         applyTorPref()
+        onBackPressedDispatcher.addCallback(this, backWhileSharing)
 
         // Either a fresh page or the one that has been holding a share up
         // while nothing was on screen. In the second case it is already booted
@@ -95,11 +111,26 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        PageHost.setShown(this, true)
+        if (startWhenShown) {
+            startWhenShown = false
+            startShareFlow()
+        }
+    }
+
+    override fun onStop() {
+        PageHost.setShown(this, false)
+        super.onStop()
+    }
+
     // Someone who turns Tor mode on and only then starts Orbot would other-
     // wise never hear the port, since a status broadcast is only trusted in
     // the window after we ask. Coming back to the app asks again.
     override fun onResume() {
         super.onResume()
+        backWhileSharing.isEnabled = LocationService.live
         if (torEnabled()) OrbotStatus.ask(this)
     }
 
@@ -120,7 +151,8 @@ class MainActivity : FragmentActivity() {
         val keep = isChangingConfigurations || PageHost.shouldKeepAlive(this)
         PageHost.detachFrom(this, keep)
         if (!keep) {
-            LocationService.stop(this)
+            // A share its window takes down leaves the same trace a swipe does.
+            if (LocationService.live) LocationService.endShare(this, "swipe") else LocationService.stop(this)
             OrbotStatus.stop(this)
         }
         super.onDestroy()
@@ -161,6 +193,32 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    fun startShareWhenShown() {
+        startWhenShown = true
+    }
+
+    fun cancelShareWhenShown() {
+        startWhenShown = false
+        pendingShareStart = false
+        backWhileSharing.isEnabled = false
+    }
+
+    // The page explains first. Phones without the dialog get the full list.
+    fun askBatteryExemption() {
+        val pm = getSystemService(PowerManager::class.java)
+        if (pm?.isIgnoringBatteryOptimizations(packageName) == true) return
+        val direct = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))
+        if (runCatching { startActivity(direct) }.isSuccess) return
+        runCatching { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
+    }
+
+    // "Restricted" is only undone on the app's own page in system settings.
+    fun openBatterySettings() {
+        runCatching {
+            startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+        }
+    }
+
     fun requestNotifyPermissionIfNeeded() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
@@ -173,6 +231,7 @@ class MainActivity : FragmentActivity() {
         requestNotifyPermissionIfNeeded()
         try {
             LocationService.start(this)
+            backWhileSharing.isEnabled = true
         } catch (e: SecurityException) {
             sendFixError("location service refused: ${e.message}", 2)
         } catch (e: IllegalStateException) {
