@@ -484,6 +484,26 @@ and why none of it weakens the core claim (the relay never sees a position).
   requests fine and coarse location while-in-use only; it does not request
   `ACCESS_BACKGROUND_LOCATION`, and it only starts while the app has
   foreground state to begin with.
+- **Keeping the page running with the screen off.** Chromium freezes a
+  hidden page after a minute or five, which stopped every share whose phone
+  was put down. During a share the wrapper makes the page visible to
+  Chromium for a second whenever it freezes, and after a swipe with "keep
+  sharing when the app is closed" on it holds the page in a window on a
+  private virtual display the app owns. Nothing is drawn there: the window's
+  root view is hidden, it never gets a surface, and no other app can see or
+  capture a private display. The keys stay in the same page in the same
+  process, exactly as they did before; the change is that the page keeps
+  running. Two permissions come with it. `WAKE_LOCK` keeps the CPU up for the
+  seconds a fix takes to seal and post, only during a share.
+  `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` lets the app ask once, in a system
+  dialog the person answers, to be left out of battery optimization. Neither
+  reads or reaches any data.
+- **The sharing report.** Settings can copy a plain-text report for bug
+  reports: versions, the device model, permission and battery states, and
+  counts and ages. It is built from a fixed list of fields, each checked
+  against the shape it should have, so it cannot carry a position, a key, a
+  name, a place, a circle or a relay address. The app never sends it; the
+  person pastes it wherever they choose.
 - **Panic trigger via PanicKit.** The app responds to
   `info.guardianproject.panic` `ACTION_TRIGGER` from a paired app (for
   example Ripple) by immediately wiping IndexedDB, localStorage, and

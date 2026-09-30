@@ -163,6 +163,117 @@ first-class target rather than an afterthought:
   (`system-images;android-36;default`), which is the closest stand-in for a
   de-googled device that automated testing can get.
 
+## Sharing with the screen off
+
+Everything that seals and posts a position runs in the page, and a WebView
+page is not built to be a background worker. Three things stood between a
+locked phone and its circle, and each one has its own fix.
+
+### Chromium freezes hidden pages
+
+A page that has been hidden for a while is frozen: five minutes in WebView
+133, one minute from Chromium 143 on. A fix the service pushes still reaches a
+frozen page, because `evaluateJavascript` runs regardless, but everything a
+post needs after that (IndexedDB, WebCrypto, `fetch`, timers) waits until the
+page is visible again. This was munzzyy/starling#6: phones locked and put down
+went quiet a minute or five later and stayed quiet until somebody opened the
+app, at which point the whole backlog went out at once. The only thing that
+thaws a page is being visible, so while a share runs `PageHost` calls
+`dispatchWindowVisibilityChanged(View.VISIBLE)` on the WebView, and a second
+later `GONE` again. Chromium unfreezes the page and starts its freeze clock
+over; nothing is drawn, because the real window is still hidden. It happens
+when the page's own `freeze` event says it was just frozen, and as a fallback
+when the page stops answering: every push is answered from a task of the
+page's own (a `MessageChannel` message), which only runs if the page is really
+running. The page asks `StarlingNative.windowShown()` instead of trusting
+`document.visibilityState` wherever "visible" has to mean a person is looking
+(notifications, the autolock, the poll pace), since for that second it reads
+"visible".
+
+### A swiped app has no window to be visible in
+
+Once a WebView has been attached to a window, Chromium only counts it visible
+while it is attached to one, so a page carried past a swipe could never be
+thawed. With "keep sharing when the app is closed" on, the page moves into a
+window of its own when the activity goes: a `Presentation` on a private
+virtual display the app creates and owns. It needs no permission, its root
+view is `GONE` so it never draws or gets a surface, and no other app can see a
+private display. Opening the app moves the page back and releases the display.
+If a phone refuses the presentation, the page is left with no window, and the
+watchdog below ends the share out loud when the page freezes.
+
+### The CPU sleeps between fixes
+
+Android holds a wake lock while it hands a fix over and lets go when the
+listener returns, which is before the page has started on it. The service now
+holds one partial wake lock during a share, with a 30 second ceiling per fix,
+and the page releases it as soon as its post settles. A phone lying still
+wakes about every 15 seconds for as long as it takes to seal and post, usually
+well under a second.
+
+### Around the same failure
+
+
+- If the page stops answering for three minutes and waking it does nothing,
+  the share ends with a record and a notice (route `stalled`), rather than
+  leaving a notification that says "sharing" over a page that posts nothing.
+- If Android stops the service itself, which it does about a minute after the
+  app leaves the screen when battery use is set to Restricted, the page is
+  told, the share ends with a record (route `system`), and opening the app
+  puts it back on.
+- Location switched off shows on the notification and on the line under your
+  name, and the last position is not sent again as if it were live.
+- A minute with no fix at all wakes the phone and sends the last position
+  again, and five minutes of silence with location on renews the location
+  requests.
+- A share start from a page whose window is not showing waits for the window
+  instead of failing, since Android refuses to start a location service from
+  the background.
+- Back, during a share, leaves the app the way Home does. Android finishes the
+  activity on Back unless it was opened from the home screen, and a Starling
+  opened from its own notification used to close, taking the share with it.
+
+### The battery exemption
+
+AOSP already exempts a location foreground service from Doze's network and
+wake lock limits, and the emulator measurements showed no difference with or
+without the exemption. Phones add their own battery management on top, though,
+and the open source trackers people compare this to (Traccar, GPSLogger,
+OwnTracks) all ask for it, so the app does too: once, when a share starts on a
+phone that is optimizing Starling, with its own explanation before the system
+dialog, and "Not now" is final. Settings shows the current state under
+Sharing, with the one button that changes it. "Restricted" cannot be fixed by
+the dialog, so both the card and Settings send the person to the app's own
+settings page for it. This is what `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` is
+for; `WAKE_LOCK` is for the wake lock above. Neither grants access to
+anything.
+
+### The sharing report
+
+Settings, Sharing, "Copy sharing report" puts a plain text summary on the
+clipboard for a bug report: app, Android and WebView versions, the device
+model, permission and battery states, Battery Saver, idle state, standby
+bucket, and counts and ages for fixes, posts, freezes and wake-ups. It is
+built from a fixed list of fields in `sharehealth.js`, each held to the shape
+it should have, so it cannot carry a position, a key, a name, a place, a
+circle or a relay address. The app never sends it anywhere.
+
+### Testing it
+
+The freeze only shows after the delay, so a test shorter than five minutes (or
+one, on a newer WebView) passes whether or not any of this works. On a
+debuggable build or a userdebug image, WebView reads flags from
+`/data/local/tmp/webview-command-line`, and this shortens the delay to a
+minute:
+
+```
+adb shell 'echo "_ --enable-features=stop-in-background:DelayForBackgroundTabFreezingMills/60000" > /data/local/tmp/webview-command-line'
+```
+
+Force-stop the app afterwards so the WebView reads it. The page's `freeze` and
+`resume` events, and the counts in the sharing report, show each freeze and
+each wake-up.
+
 ## Known WebView-specific limits
 
 - **No service worker.** `sw.js` is never registered inside the wrapper.

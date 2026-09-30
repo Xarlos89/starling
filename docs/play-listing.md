@@ -167,17 +167,37 @@ location. Tapping it returns to the app; there is a stop action to end
 sharing immediately.
 
 Impact if interrupted: if the OS kills the foreground service (low memory,
-battery optimization, force-stop), location sharing simply stops. Circle
-members see the user's last known position go stale in the UI rather than
-a false live indicator. Nothing safety-critical depends on the service
-staying alive (this is not an emergency dispatch app). The user restarts
-sharing with one tap whenever they want.
+battery optimization, force-stop), location sharing stops. Circle members
+see the user's last known position go stale in the UI rather than a false
+live indicator, and the user gets a notice that sharing stopped; when the OS
+stopped it, opening the app turns it back on. Nothing safety-critical depends
+on the service staying alive (this is not an emergency dispatch app).
 
 Google's review team also wants a short screen recording of the flow: open
 the app, start sharing, background the app, see the persistent
 notification, stop sharing. Record it once the wrapper build is functional
 and attach the link here. Not recorded yet, flagged for a build-complete
 pass.
+
+## Battery optimization exemption
+
+The app declares `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, and Play checks that
+against its list of acceptable uses. Paste this:
+
+```
+Starling shares the user's live location with their circle while the screen
+is off, from a foreground service the user turned on. On some phones battery
+optimization pauses that work, and the circle sees an old position while the
+notification still says sharing is on. Starling asks once, when the user
+starts a share on a phone that is optimizing it. It explains why first, and
+"Not now" is never asked again. The request itself is the system dialog.
+Settings shows the current state and a button to change it. Sharing works
+without the exemption; it just holds up better with it.
+```
+
+If Play says no, drop the permission and open the system's list instead
+(`ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS`). That needs no permission,
+but the user has to find Starling in the list themselves.
 
 ## App signing and upload key
 
