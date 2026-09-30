@@ -235,6 +235,16 @@ object PageHost {
             waitingSince = 0L
             quietSince = 0L
             quietNudges = 0
+            // Mid-nudge the page already reads visible, so coming back would fire no
+            // visibilitychange and its on-return work would never run. Hide it, then
+            // hand it the window's real state; a window not back yet sends VISIBLE later.
+            if (nudging) {
+                nudging = false
+                webView?.let { v ->
+                    v.dispatchWindowVisibilityChanged(View.GONE)
+                    v.dispatchWindowVisibilityChanged(v.windowVisibility)
+                }
+            }
         }
     }
 
