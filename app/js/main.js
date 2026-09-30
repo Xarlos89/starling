@@ -4598,11 +4598,15 @@ async function panic() {
   // older wrapper without the method it is the whole wipe, as before.
   try {
     native()?.panicWipe?.();
-    // Belt and suspenders on the same reasoning as the line above: panicWipe
-    // already takes the stop record with it (it lives in the same private
-    // prefs file clearApplicationUserData empties), but that call is
-    // fire-and-forget into a process about to die, so this asks for it
-    // explicitly too rather than trusting the race.
+  } catch {
+    // old wrapper, or a native wipe that threw before its clear
+  }
+  // Belt and suspenders on the same reasoning as the line above: panicWipe
+  // already takes the stop record with it (it lives in the same private
+  // prefs file clearApplicationUserData empties), but that call is
+  // fire-and-forget into a process about to die, so this asks for it
+  // explicitly too rather than trusting the race.
+  try {
     native()?.clearStopRecord?.();
   } catch {
     // old wrapper

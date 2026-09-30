@@ -113,8 +113,9 @@ class LocationService : Service(), LocationListener {
         }
 
         // Not reference counted: each fix pushes the deadline out, one release ends it.
+        // Never with no page: nothing would be left to post, or to let go.
         fun holdAwake(ctx: Context, ms: Long = FIX_WAKE_MS) {
-            if (!running) return
+            if (!running || sink == null) return
             synchronized(this) {
                 val w = wake ?: (ctx.applicationContext.getSystemService(POWER_SERVICE) as PowerManager)
                     .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "starling:share")

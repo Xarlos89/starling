@@ -85,10 +85,12 @@ Pairing with a trigger app like Ripple happens through the visible
 Starling shows what it will do and asks nothing else. Once connected,
 receiving `ACTION_TRIGGER` from that same paired app wipes immediately, with
 no confirmation dialog, because the entire point of a panic trigger is that
-it has to work without a second decision under pressure. The wipe deletes
-the Keystore wrap key and the share notification channel first, then hands
-the rest to the system's clear-data path, which removes all app data,
-WebView storage and cookies included, and kills the process. The responder
+it has to work without a second decision under pressure. The wipe stops a
+running share, deletes the Keystore wrap key and the app's notification
+channels, then hands the rest to the system's clear-data path, which removes
+all app data, WebView storage and cookies included, and kills the process.
+The in-app panic wipe and the duress passcode run the same code, from the
+bridge thread, so it touches no view. The responder
 verifies the sender package against the connected trigger app; an unpaired
 or spoofed sender is ignored.
 

@@ -99,7 +99,7 @@ test("each fix holds the CPU up for the page, from before the page hears of it",
   const push = onFix.indexOf("sink?.invoke(fix.toString())");
   assert.ok(hold >= 0 && push > hold, "acquired before the fix is handed over");
   const awake = fn(svc, "holdAwake");
-  assert.match(awake, /if \(!running\) return/, "never outside a share");
+  assert.match(awake, /if \(!running \|\| sink == null\) return/, "never outside a share, and never with no page to let go");
   assert.match(awake, /PARTIAL_WAKE_LOCK/);
   assert.match(awake, /setReferenceCounted\(false\)/, "one release lets go however many fixes asked");
   assert.match(awake, /acquire\(ms\)/, "always with a ceiling");
@@ -199,4 +199,42 @@ test("Back during a share leaves the app instead of closing it, and a share its 
   assert.match(fn(act, "onResume"), /backWhileSharing\.isEnabled = LocationService\.live/);
   assert.match(fn(act, "onDestroy"), /if \(LocationService\.live\) LocationService\.endShare\(this, "swipe"\) else LocationService\.stop\(this\)/);
   assert.match(kt("LocationService.kt"), /val live: Boolean get\(\) = running && !stopAsked/);
+});
+
+// Comments out, whitespace folded, so a body can be compared whole.
+const code = (body) => body.replace(/\/\/[^\n]*/g, "").replace(/\s+/g, " ").trim();
+
+test("the panic wipe never touches the WebView from the bridge thread, so the wipe itself runs", () => {
+  const bridge = kt("StarlingBridge.kt");
+  // removeView and WebView.destroy() throw off the main thread, and panicWipe died there before Wipe ran.
+  for (const call of ["PageHost.destroy(", "PageHost.load(", "PageHost.attach(", "PageHost.detachFrom("]) {
+    assert.ok(!bridge.includes(call), `StarlingBridge must not call ${call}`);
+  }
+  assert.equal(code(fn(bridge, "panicWipe")), "fun panicWipe() { Wipe.everything(app) }");
+  assert.match(kt("PanicActivity.kt"), /private fun wipeEverything\(\) = Wipe\.everything\(this\)/, "both triggers run the same wipe");
+});
+
+test("the wipe stops the share first, deletes each channel on its own, and kills the process last", () => {
+  const wipe = fn(kt("Wipe.kt"), "everything");
+  const at = (s) => {
+    const i = wipe.indexOf(s);
+    assert.ok(i >= 0, `Wipe.everything has ${s}`);
+    return i;
+  };
+  assert.match(wipe, /runCatching \{ LocationService\.stop\(ctx\) \}/);
+  assert.ok(at("LocationService.stop(ctx)") < at("KeystoreVault.deleteKey()"));
+  assert.ok(at("KeystoreVault.deleteKey()") < at("deleteNotificationChannel"));
+  assert.ok(at("deleteNotificationChannel") < at("clearApplicationUserData()"));
+  // Deleting "share" throws while its foreground service is up; that must not keep the other two.
+  assert.match(
+    wipe,
+    /for \(id in listOf\(LocationService\.CHANNEL, MainActivity\.EVENTS_CHANNEL, MainActivity\.SOS_CHANNEL\)\) \{\s*runCatching \{ nm\.deleteNotificationChannel\(id\) \}\s*\}/,
+  );
+  assert.equal((wipe.match(/deleteNotificationChannel/g) || []).length, 1, "no channel deleted outside the loop");
+});
+
+test("a share left with no page ends out loud instead of holding GPS and a wake lock for nobody", () => {
+  const check = fn(kt("PageHost.kt"), "checkPage");
+  assert.match(check, /if \(webView == null && LocationService\.live\) appCtx\?\.let \{ LocationService\.endShare\(it, "stalled"\) \}/);
+  assert.match(fn(kt("LocationService.kt"), "onTick"), /PageHost\.checkPage\(\)/, "the keepalive tick is what finds it");
 });

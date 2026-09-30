@@ -35,6 +35,17 @@ only shows after that.
   saying "Live" when your circle has stopped hearing from you. Location
   switched off is said there and on the notification, and your circle sees
   you go quiet instead of a live dot where you used to be.
+- **The panic wipe inside the app works again.** Since 0.13.0 it failed
+  whenever it ran from inside the app, the duress passcode included: the
+  wrapper tried to take the page down from the wrong thread and stopped there.
+  The page still erased its own storage, but nothing else went. Cached map
+  tiles of where your circle had been, the biometric unlock key and the
+  settings the Android side keeps all stayed on the phone, a running share
+  kept going with the phone held awake, and the app sat on an error page until
+  it was force stopped. It now stops the share and clears everything, and the
+  app closes. The PanicKit trigger left the notification channels behind when
+  it fired during a share, and no longer does.
+
 On a phone that optimizes Starling's battery use, starting a share now asks
 once whether it may run in the background. "Not now" is final, and Settings
 shows the state under Sharing either way. Settings can also copy a sharing

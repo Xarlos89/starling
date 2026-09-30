@@ -88,15 +88,14 @@ class StarlingBridge(private val app: Context) {
         ui { it.requestNotifyPermissionIfNeeded() }
     }
 
-    // The full-device panic wipe: Keystore wrap key, notification channels,
-    // then clearApplicationUserData, which kills the process. Same wipe the
-    // PanicKit trigger runs. The page's own storage wipe still runs in
-    // parallel as the fallback for wrappers that predate this method.
+    // The full-device panic wipe: the share, the Keystore wrap key,
+    // notification channels, then clearApplicationUserData, which kills the
+    // process. Same wipe the PanicKit trigger runs. The page's own storage
+    // wipe still runs in parallel as the fallback for wrappers that predate
+    // this method.
     @JavascriptInterface
     fun panicWipe() {
-        // The page is going with everything else, so it stops being a place
-        // keys can live before clearApplicationUserData kills the process.
-        PageHost.destroy()
+        // Bridge thread, where any WebView call throws: the process kill takes the page.
         Wipe.everything(app)
     }
 

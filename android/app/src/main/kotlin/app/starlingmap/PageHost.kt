@@ -367,6 +367,8 @@ object PageHost {
             waitingSince = 0L
             quietSince = 0L
             quietNudges = 0
+            // A share with no page left to post it would otherwise hold GPS until force stop.
+            if (webView == null && LocationService.live) appCtx?.let { LocationService.endShare(it, "stalled") }
             return
         }
         if (waitingSince == 0L || pulseAt >= waitingSince) {

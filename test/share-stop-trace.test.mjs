@@ -125,6 +125,33 @@ test("a panic wipe also tells the native side to drop the stop record", async ()
   }
 });
 
+test("a native wipe that throws still drops the stop record and still runs the page's own wipe", async () => {
+  resetForBoot();
+  const calls = [];
+  const reload = location.reload;
+  const deleteDatabase = indexedDB.deleteDatabase;
+  location.reload = () => calls.push("reload");
+  indexedDB.deleteDatabase = function (...args) {
+    calls.push("deleteDatabase");
+    return deleteDatabase.apply(this, args);
+  };
+  globalThis.StarlingNative = {
+    panicWipe: () => {
+      calls.push("panicWipe");
+      throw new Error("A WebView method was called on thread 'JavaBridge'");
+    },
+    clearStopRecord: () => calls.push("clearStopRecord"),
+  };
+  try {
+    await internals.panic();
+    assert.deepEqual(calls, ["panicWipe", "clearStopRecord", "deleteDatabase", "reload"]);
+  } finally {
+    delete globalThis.StarlingNative;
+    location.reload = reload;
+    indexedDB.deleteDatabase = deleteDatabase;
+  }
+});
+
 test("a live stop from the notification names itself instead of going silent, and clears the trace it just showed", async () => {
   resetForBoot();
   const calls = [];
