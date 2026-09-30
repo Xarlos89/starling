@@ -11,6 +11,19 @@ const CANONICAL = "https://starlingmap.app";
 export const isWrapped = () => !!globalThis.StarlingNative;
 export const native = () => globalThis.StarlingNative ?? null;
 
+// Whether a person can see the page. The wrapper makes a hidden page visible for
+// a second at a time during a share, so it answers from its window instead.
+export function pageShown() {
+  if (globalThis.document?.visibilityState !== "visible") return false;
+  const n = native();
+  if (typeof n?.windowShown !== "function") return true;
+  try {
+    return !!n.windowShown();
+  } catch {
+    return true;
+  }
+}
+
 // The iOS wrapper serves this same bundle on its own scheme. There is no
 // StarlingNative there, and must not be until iOS can actually deliver what
 // the bridge names (background fixes, notifications, the OS wipe), so

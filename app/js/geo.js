@@ -7,8 +7,16 @@
 
 import { native } from "./env.js";
 
-function startNativeWatch(n, onFix, onError) {
+function startNativeWatch(n, onFix, onError, { onSignal, afterEach } = {}) {
+  // afterEach runs even when handling throws: a missed answer reads as a frozen page.
   globalThis.__starlingFix = (json) => {
+    try {
+      handle(json);
+    } finally {
+      afterEach?.();
+    }
+  };
+  const handle = (json) => {
     let p;
     try {
       p = JSON.parse(json);
@@ -18,11 +26,17 @@ function startNativeWatch(n, onFix, onError) {
     // Everything from the service is terminal: it does not retry, so the page
     // must actually stop sharing rather than keep publishing the last fix.
     if (p && p.stopped) {
-      onError({ code: 2, message: "stopped", native: true, stopped: true });
+      const route = typeof p.route === "string" ? p.route : "notif";
+      onError({ code: 2, message: "stopped", native: true, stopped: true, route });
       return;
     }
     if (p && p.error) {
       onError({ code: Number(p.code) || 2, message: String(p.error), native: true });
+      return;
+    }
+    // A tick is a minute with no fix; paused is the location switch, "" for back on.
+    if (p && (p.tick === true || typeof p.paused === "string")) {
+      onSignal?.(p.tick === true ? { tick: true } : { paused: p.paused || null });
       return;
     }
     if (!Number.isFinite(p?.lat) || !Number.isFinite(p?.lon)) return;
@@ -39,7 +53,8 @@ function startNativeWatch(n, onFix, onError) {
     n.startLocation();
   } catch {
     delete globalThis.__starlingFix;
-    onError({ code: 2, message: "native location failed" });
+    // Native: nothing retries, so the share stops instead of sitting on "Still trying".
+    onError({ code: 2, message: "native location failed", native: true });
     return () => {};
   }
   return () => {
@@ -52,9 +67,10 @@ function startNativeWatch(n, onFix, onError) {
   };
 }
 
-export function startWatch(onFix, onError) {
+// `hooks` ({ onSignal, afterEach }) only matter inside the Android wrapper.
+export function startWatch(onFix, onError, hooks) {
   const n = native();
-  if (n?.startLocation) return startNativeWatch(n, onFix, onError);
+  if (n?.startLocation) return startNativeWatch(n, onFix, onError, hooks);
   if (!("geolocation" in navigator)) {
     onError({ code: 2, message: "geolocation unsupported" });
     return () => {};

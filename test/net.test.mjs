@@ -615,3 +615,52 @@ test("hidden document: web pauses, wrapper keeps listening", async () => {
     restore();
   }
 });
+
+// The wrapper's one second thaws are not a person opening the app.
+test("a thaw with no window up neither polls at once nor delays the next poll", async () => {
+  const calls = [];
+  const restore = stubGlobals([{ members: [] }], calls);
+  const listeners = [];
+  globalThis.document.addEventListener = (type, fn) => {
+    if (type === "visibilitychange") listeners.push(fn);
+  };
+  let shown = false;
+  globalThis.StarlingNative = { platform: () => "android", windowShown: () => shown };
+  try {
+    globalThis.document.visibilityState = "hidden";
+    const poller = createPoller({ channelId: CHANNEL, roster: { async ingest() {} } });
+    poller.start();
+    await new Promise((r) => setTimeout(r, 30));
+    const afterStart = calls.length;
+    assert.ok(afterStart >= 1, "the hidden wrapper polls on start");
+    assert.equal(listeners.length, 1);
+
+    const scheduled = [];
+    const realSetTimeout = globalThis.setTimeout;
+    globalThis.setTimeout = (fn, ms, ...rest) => {
+      scheduled.push(ms);
+      return realSetTimeout(fn, ms, ...rest);
+    };
+    try {
+      globalThis.document.visibilityState = "visible";
+      listeners[0]();
+      globalThis.document.visibilityState = "hidden";
+      listeners[0]();
+    } finally {
+      globalThis.setTimeout = realSetTimeout;
+    }
+    await new Promise((r) => setTimeout(r, 30));
+    assert.equal(calls.length, afterStart, "a thaw is not a reason to poll");
+    assert.deepEqual(scheduled, [], "and the poll already waiting keeps its time");
+
+    shown = true;
+    globalThis.document.visibilityState = "visible";
+    listeners[0]();
+    await new Promise((r) => setTimeout(r, 30));
+    assert.equal(calls.length, afterStart + 1, "the person coming back is");
+    poller.stop();
+  } finally {
+    delete globalThis.StarlingNative;
+    restore();
+  }
+});

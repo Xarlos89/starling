@@ -99,7 +99,7 @@ import {
   zero,
 } from "./lock.js";
 import { createPlaceTracker, sanitizePlaces, newPlaceId, fenceSnap, DEFAULT_RADIUS } from "./places.js";
-import { debugHooks, apiUrl, isWrapped, isBundled, native, shareUrlBase, normalizeRelay, setApiBase, shareCapable } from "./env.js";
+import { debugHooks, apiUrl, isWrapped, isBundled, native, pageShown, shareUrlBase, normalizeRelay, setApiBase, shareCapable } from "./env.js";
 import {
   isSealedRecordError,
   GEN_SLOT,
@@ -135,6 +135,8 @@ import { buildDataExport } from "./export.js";
 import { startBeacon } from "./helpsession.js";
 import { startWatch, batteryLevel } from "./geo.js";
 import { haversineMeters, coarsePos, hueFromMemberId, fmtRelTime } from "./fmt.js";
+import { parseHealth, shareProblems, sentNote, sendErrorKind, shareReport } from "./sharehealth.js";
+import { VERSION } from "./version.js";
 import { createDemo, demoPlaces, DEMO_CENTER } from "./demo.js";
 import { t, translateDom, setLocale, resolveLocale, LOCALE_CHOICES } from "./i18n.js";
 
@@ -375,6 +377,17 @@ let stopGeo = null;
 let shareTimer = 0;
 let lastSentPos = null;
 let wakeLock = null;
+// One post in flight, the newest position behind it. A backlog of one post per
+// fix went out in a burst whenever a held-up page came back.
+let sendBusy = 0;
+let sendAgain = false;
+// A post asked for between generations, sent on the next sender.
+let sendWhenReady = false;
+// Counts and times only.
+let shareStats = { startedAt: 0, ok: 0, failed: 0, lastOkAt: 0, lastErr: "", lastErrAt: 0 };
+let locationPaused = null;
+// Settings cards waved off for this share.
+const healthDismissed = new Set();
 const prevStatus = new Map();
 // The whole-circle-silent card, dismissed for this session once acknowledged.
 const QUIET_CHANNEL_MS = 45 * 60 * 1000;
@@ -683,10 +696,23 @@ function renderYou() {
   $("#you-ava").style.setProperty("--m-hue", String(myHue()));
   const hasFix = !!(state.me && Number.isFinite(state.me.lat));
   let sub;
+  // Once the circle's screens show this phone as quiet, this one stops saying live.
+  const sent =
+    state.sharing && hasFix && !state.demo && isWrapped()
+      ? sentNote({ lastOkAt: shareStats.lastOkAt, startedAt: shareStats.startedAt, now: Date.now(), staleMs: STALE_MS })
+      : null;
   if (!state.sharing) sub = t("Not sharing");
-  else if (state.sosActive) sub = hasFix ? t("SOS armed · Sharing live") : t("SOS armed · Locating...");
+  else if (locationPaused) sub = t("Location is off on this phone. Turn it on to keep sharing.");
+  else if (state.sosActive)
+    sub = !hasFix
+      ? t("SOS armed · Locating...")
+      : sent?.stale
+        ? t("SOS armed · Not reaching your circle")
+        : t("SOS armed · Sharing live");
   else if (!hasFix) sub = state.geoFailed ? t("No location fix yet. Still trying...") : t("Locating...");
+  else if (sent?.stale) sub = t("Not reaching your circle");
   else sub = state.settings.precision === "coarse" ? t("Live · Neighborhood") : t("Live · Precise");
+  if (sent && !locationPaused) sub += ` · ${sent.text}`;
   const myPlace = placeTracker.placeFor(SELF_KEY);
   if (myPlace && hasFix) sub = `${t("At {place}", { place: myPlace.name })} · ${sub}`;
   if (state.sharing && shareDeadline) {
@@ -778,31 +804,53 @@ function alertItems() {
   if (state.demo) return items;
 
   if (state.stopRecord) {
+    const route = state.stopRecord.route;
+    const back = state.sharing && (route === "swipe" ? shareResumed : true);
+    const restricted = route === "system" && currentHealth()?.battery === "restricted";
     const text =
-      state.stopRecord.route === "swipe"
-        ? shareResumed && state.sharing
+      route === "swipe"
+        ? back
           ? t("The app was closed while sharing was on, which stopped it, and opening it again put it back on. If closing it was not you, check who has access to this phone.")
           : t("The app was closed while sharing was on, which stops it every time. If that was not you, check who has access to this phone.")
-        : state.stopRecord.route === "renderer"
+        : route === "renderer"
           ? t("Android shut down the part of Starling that sends your position, so the share stopped. Nobody did this by hand.")
-          : t("Someone tapped Stop on the sharing notification. If that was not you, check who has access to this phone.");
+          : route === "system"
+            ? restricted
+              ? t("Android stopped Starling in the background because its battery use is set to Restricted, and that ends every share a minute after you leave the app. Set it to Unrestricted in the app's settings.")
+              : t("Android stopped Starling in the background, so the share ended. Nobody did this by hand.")
+            : route === "stalled"
+              ? t("Android kept Starling from running in the background, so your circle stopped getting your location and the share ended. Nobody did this by hand.")
+              : t("Someone tapped Stop on the sharing notification. If that was not you, check who has access to this phone.");
+    const actions = [
+      {
+        label: "Got it",
+        testid: "alert-stop-record-ok",
+        onClick: () => {
+          state.stopRecord = null;
+          native()?.clearStopRecord?.();
+          render();
+        },
+      },
+    ];
+    if (restricted) {
+      actions.unshift({ label: "Open app settings", variant: "btn-primary", testid: "alert-stop-battery", onClick: openBatterySettings });
+    }
     items.push({
       id: "stop-record",
       kind: "warn",
       title: t("Your last share was stopped outside the app"),
-      text,
-      actions: [
-        {
-          label: "Got it",
-          testid: "alert-stop-record-ok",
-          onClick: () => {
-            state.stopRecord = null;
-            native()?.clearStopRecord?.();
-            render();
-          },
-        },
-      ],
+      text: route === "system" || route === "stalled" ? (back ? `${text} ${t("It is back on now that the app is open.")}` : text) : text,
+      actions,
     });
+  }
+
+  if (state.sharing && !state.locked && isWrapped()) {
+    for (const problem of shareProblems(currentHealth())) {
+      if (healthDismissed.has(problem)) continue;
+      if (problem === "restricted" && state.stopRecord?.route === "system") continue;
+      const item = healthCard(problem);
+      if (item) items.push(item);
+    }
   }
 
   for (const id of state.keyChanges.keys()) {
@@ -1703,6 +1751,11 @@ function setupNet() {
     onKeyChange,
   });
   let lastTsCache = null;
+  const seedLastTs = (v) => {
+    lastTsCache = Math.max(lastTsCache ?? 0, Number(v) || 0);
+    return lastTsCache;
+  };
+  const lastTsRead = dbGet("lastSentTs").then(seedLastTs, () => seedLastTs(0));
   sender = createSender({
     identity: state.identity,
     channelId: gen.channelId,
@@ -1710,12 +1763,19 @@ function setupNet() {
     // Read once per sender, then kept in memory and written behind. Every post
     // used to wait on two IndexedDB round trips, and a page with no window
     // cannot count on those settling, so one stall held up every later post.
-    getLastTs: async () => (lastTsCache ??= (await dbGet("lastSentTs")) || 0),
+    // Two seconds at most: the clock beats the last ts anyway unless it jumped back.
+    getLastTs: () =>
+      lastTsCache ??
+      Promise.race([lastTsRead, new Promise((r) => setTimeout(() => r(lastTsCache ?? 0), 2000))]),
     setLastTs: (ts) => {
-      lastTsCache = ts;
+      seedLastTs(ts);
       dbSet("lastSentTs", ts).catch(() => {});
     },
   });
+  if (sendWhenReady && state.sharing) {
+    sendWhenReady = false;
+    Promise.resolve().then(() => sendLoc(true));
+  }
   poller = createPoller({
     channelId: gen.channelId,
     roster,
@@ -2540,6 +2600,12 @@ function showV1Notice() {
 
 let lockTimer = 0;
 let lockWired = false;
+let hiddenAt = 0;
+
+function clearLockTimer() {
+  clearTimeout(lockTimer);
+  lockTimer = 0;
+}
 let damagedAtRest = false;
 
 // Lock transitions rewrite the same slots the circle mutations do, so they
@@ -2755,7 +2821,7 @@ async function openVaultWith(K) {
       // session calls itself unlocked.
       const promoted = await leaveDestroyedCircle(inactive);
       state.locked = false;
-      clearTimeout(lockTimer);
+      clearLockTimer();
       if (promoted) await enterCircle();
       else showDestroyedNotice();
       render();
@@ -2770,7 +2836,7 @@ async function openVaultWith(K) {
       state.locked = false;
       state.lock = null;
       state.vaultKey = null;
-      clearTimeout(lockTimer);
+      clearLockTimer();
       await dbDel("lock");
       const slots = await readActiveSlots(null, plainSecret);
       if (slotsVerdict({ identity: plainIdentity, meta: slots.meta }).kind === "v1") {
@@ -2797,7 +2863,7 @@ async function openVaultWith(K) {
     state.locked = false;
     state.lock = null;
     state.vaultKey = null;
-    clearTimeout(lockTimer);
+    clearLockTimer();
     const stray = unlockVerdict({
       sealed: false,
       opened: false,
@@ -2855,7 +2921,7 @@ async function openVaultWith(K) {
     zero(K);
     state.vaultKey = null;
     state.locked = false;
-    clearTimeout(lockTimer);
+    clearLockTimer();
     showV1Notice();
     return true;
   }
@@ -2901,7 +2967,7 @@ async function openVaultWith(K) {
     if (state.circles.length !== inactive.length) await persistCirclesAtRest();
   }
   state.locked = false;
-  clearTimeout(lockTimer);
+  clearLockTimer();
   await enterCircle();
   return true;
 }
@@ -2917,7 +2983,8 @@ function lockNow() {
     lockPending = true;
     return;
   }
-  clearTimeout(lockTimer);
+  clearLockTimer();
+  hiddenAt = 0;
   if (state.sharing) {
     // Caption first, so the bye goes out clean rather than carrying a stale
     // claim into the last message anyone sees from this device.
@@ -3103,13 +3170,33 @@ function forgotPasscode() {
 // one thing that switch promises will not happen; its note says the lock
 // cannot protect them until the share ends. The timer is armed when the share
 // does end.
+//
+// Shown, not visible, so the wrapper's one second thaws never restart the
+// countdown. The clock decides on the way back in: a frozen page runs no timers.
 function armAutoLock() {
-  if (!state.lock?.enabled || state.locked) return;
-  clearTimeout(lockTimer);
-  lockTimer = 0;
-  if (document.visibilityState !== "hidden") return;
-  if (state.sharing && keptPastClose()) return;
-  lockTimer = setTimeout(lockNow, state.lock.autolockMs);
+  if (!state.lock?.enabled || state.locked) {
+    if (pageShown()) hiddenAt = 0;
+    return;
+  }
+  if (state.sharing && keptPastClose()) {
+    clearLockTimer();
+    hiddenAt = 0;
+    return;
+  }
+  if (pageShown()) {
+    const away = hiddenAt ? Date.now() - hiddenAt : 0;
+    hiddenAt = 0;
+    clearLockTimer();
+    if (away && away >= state.lock.autolockMs) lockNow();
+    return;
+  }
+  if (!hiddenAt) hiddenAt = Date.now();
+  if (lockTimer) return;
+  const left = Math.max(0, state.lock.autolockMs - (Date.now() - hiddenAt));
+  lockTimer = setTimeout(() => {
+    lockTimer = 0;
+    lockNow();
+  }, left);
 }
 
 function keptPastClose() {
@@ -4353,6 +4440,21 @@ async function openSettings() {
       keepSharing = null;
     }
   }
+  const background =
+    typeof n?.batteryState === "function" && !state.demo
+      ? {
+          state: () => {
+            try {
+              return String(native()?.batteryState?.() ?? "optimized");
+            } catch {
+              return "optimized";
+            }
+          },
+          onAllow: askBatteryExemption,
+          onOpen: openBatterySettings,
+          onCopyReport: copyShareReport,
+        }
+      : null;
   keepLive((done) =>
     ui.openSettingsSheet({
       api,
@@ -4371,6 +4473,7 @@ async function openSettings() {
       demo: state.demo,
       tor,
       keepSharing,
+      background,
       lock: {
         enabled: !!state.lock?.enabled,
         hasBio: !!state.lock?.bio,
@@ -4568,7 +4671,7 @@ function onShareToggle() {
   return setSharing(!state.sharing);
 }
 
-async function setSharing(on) {
+async function setSharing(on, { keepArmed = false } = {}) {
   if (state.demo) {
     state.sharing = on;
     if (!on) state.sosActive = false;
@@ -4580,7 +4683,12 @@ async function setSharing(on) {
     state.sharing = true;
     state.geoDenied = false;
     state.geoFailed = false;
-    stopGeo = startWatch(onFix, onGeoError);
+    shareStats = { startedAt: Date.now(), ok: 0, failed: 0, lastOkAt: 0, lastErr: "", lastErrAt: 0 };
+    sendWhenReady = false;
+    locationPaused = null;
+    healthDismissed.clear();
+    healthAt = 0;
+    stopGeo = startWatch(onFix, onGeoError, { onSignal: onShareSignal, afterEach: pulseWrapper });
     // startWatch can report an error synchronously and turn sharing back off.
     if (state.sharing) {
       // Written down so a share that dies with the process can come back.
@@ -4623,8 +4731,8 @@ async function setSharing(on) {
     armAutoLock();
     // This path is every deliberate end: the toggle, the notification's Stop,
     // the timer, a circle switch, a lock. None of them should come back by
-    // themselves on the next open.
-    await disarmShare();
+    // themselves on the next open, unless Android ended it.
+    if (!keepArmed) await disarmShare();
     // A caption is a claim about right now; it must not outlive the share.
     // Cleared BEFORE the bye goes out, so the bye itself carries no caption.
     clearCaption();
@@ -4653,6 +4761,8 @@ async function setSharing(on) {
 // had left, which is the same class of fact the wrapper already writes when a
 // share ends. A share the person ended themselves is never recorded.
 const SHARE_ARMED = "shareArmed";
+
+const STOP_ROUTES = new Set(["notif", "swipe", "renderer", "system", "stalled"]);
 
 async function armShare() {
   try {
@@ -4720,7 +4830,12 @@ async function resumeShareIfArmed() {
   if (!state.sharing) return false; // permission gone, startWatch refused
   if (armed.deadline) setShareWindow(Math.max(1000, armed.deadline - Date.now()));
   shareResumed = true;
-  ui.toast(t("Sharing was on when the app closed, so it is back on."));
+  const byAndroid = state.stopRecord?.route === "system" || state.stopRecord?.route === "stalled";
+  ui.toast(
+    byAndroid
+      ? t("Android had stopped your share in the background. It is back on.")
+      : t("Sharing was on when the app closed, so it is back on."),
+  );
   render();
   return true;
 }
@@ -4762,11 +4877,181 @@ function endTimedShare() {
     .finally(render);
 }
 
+// ------------------------------------------- a share with nobody looking
+//
+// The wrapper thaws a frozen page when told: by the freeze event, or by a push
+// that goes unanswered, since the answer comes from a task a frozen page never
+// runs. The answer carries the posts in flight, so the phone can sleep after.
+
+const pulseChannel = typeof MessageChannel === "function" && isWrapped() ? new MessageChannel() : null;
+if (pulseChannel) {
+  pulseChannel.port1.onmessage = () => tellWrapperAlive();
+  // Node only; an open port would keep the test runner alive.
+  pulseChannel.port1.unref?.();
+  pulseChannel.port2.unref?.();
+}
+
+function tellWrapperAlive() {
+  try {
+    native()?.pulse?.(sendBusy);
+  } catch {
+    // an older wrapper without the method
+  }
+}
+
+function pulseWrapper() {
+  if (!isWrapped()) return;
+  if (pulseChannel) pulseChannel.port2.postMessage(0);
+  else setTimeout(tellWrapperAlive, 0);
+}
+
+document.addEventListener("freeze", () => {
+  try {
+    native()?.pageFrozen?.();
+  } catch {
+    // an older wrapper without the method
+  }
+});
+
+// A synchronous bridge call, and render runs often.
+let healthCache = null;
+let healthAt = 0;
+
+function currentHealth(force = false) {
+  const n = native();
+  if (typeof n?.health !== "function") return null;
+  if (!force && healthAt && Date.now() - healthAt < 10000) return healthCache;
+  try {
+    healthCache = parseHealth(n.health());
+  } catch {
+    healthCache = null;
+  }
+  healthAt = Date.now();
+  return healthCache;
+}
+
+function onShareSignal(sig) {
+  if (sig.tick) {
+    // A minute with no fix: resend, as the page's own interval would.
+    if (state.sharing) sendLoc(true);
+  } else if ("paused" in sig) {
+    locationPaused = sig.paused || null;
+    healthAt = 0;
+  }
+  render();
+}
+
+function callNative(name) {
+  try {
+    native()?.[name]?.();
+  } catch {
+    // an older wrapper without the method
+  }
+}
+
+const openBatterySettings = () => callNative("openBatterySettings");
+const openAppSettingsPage = () => callNative("openAppSettings");
+
+// Asked once. "Not now" is final; Settings keeps the state and the button.
+function askBatteryExemption() {
+  markBatteryAsked();
+  callNative("askBatteryExemption");
+}
+
+function markBatteryAsked() {
+  if (state.settings.batteryAsked) return;
+  state.settings = { ...state.settings, batteryAsked: true };
+  dbSet("settings", state.settings).catch(() => {});
+  render();
+}
+
+function healthCard(problem) {
+  const waveOff = {
+    label: "Got it",
+    testid: `alert-health-ok-${problem}`,
+    onClick: () => {
+      healthDismissed.add(problem);
+      render();
+    },
+  };
+  if (problem === "restricted") {
+    return {
+      id: "health-restricted",
+      kind: "warn",
+      title: t("Android will stop this share when you leave the app"),
+      text: t("Starling's battery use is set to Restricted, so Android stops a share about a minute after the app leaves the screen. Set it to Unrestricted in the app's settings to keep sharing with the screen off."),
+      actions: [{ label: "Open app settings", variant: "btn-primary", testid: "alert-health-battery", onClick: openBatterySettings }, waveOff],
+    };
+  }
+  if (problem === "coarse") {
+    return {
+      id: "health-coarse",
+      kind: "warn",
+      title: t("Starling only has your approximate location"),
+      text: t("With approximate location, Android updates your position roughly and only about every ten minutes, so your circle sees you jump. Allow precise location in the app's settings for a live share."),
+      actions: [{ label: "Open app settings", variant: "btn-primary", testid: "alert-health-precise", onClick: openAppSettingsPage }, waveOff],
+    };
+  }
+  if (problem === "saver") {
+    return {
+      id: "health-saver",
+      kind: "warn",
+      title: t("Battery Saver is turning off your location"),
+      text: t("With Battery Saver on, this phone turns location off while the screen is off, so your circle stops seeing you move. Turn Battery Saver off to keep sharing."),
+      actions: [waveOff],
+    };
+  }
+  if (problem === "optimized" && !state.settings.batteryAsked) {
+    return {
+      id: "health-optimized",
+      kind: "info",
+      title: t("Keep sharing with the screen off"),
+      text: t("Android may pause Starling to save battery while your screen is off, and your circle would stop seeing you move. Letting Starling run in the background stops that. It only makes a difference while you share."),
+      actions: [
+        { label: "Allow", variant: "btn-primary", testid: "alert-health-allow", onClick: askBatteryExemption },
+        { label: "Not now", testid: "alert-health-later", onClick: markBatteryAsked },
+      ],
+    };
+  }
+  // Location off is already on the line under your name and the notification.
+  return null;
+}
+
+// Copied, never sent: the person decides where it goes.
+function buildShareReport() {
+  return shareReport({
+    h: currentHealth(true),
+    page: {
+      version: VERSION,
+      sharing: state.sharing,
+      startedAt: shareStats.startedAt,
+      ok: shareStats.ok,
+      failed: shareStats.failed,
+      lastOkAt: shareStats.lastOkAt,
+      lastErr: shareStats.lastErr,
+      lastErrAt: shareStats.lastErrAt,
+      customRelay: !!state.relay,
+    },
+    now: Date.now(),
+  });
+}
+
+async function copyShareReport() {
+  const text = buildShareReport();
+  try {
+    await navigator.clipboard.writeText(text);
+    ui.toast(t("Sharing report copied. It has no locations and no keys in it."));
+  } catch {
+    ui.toast(t("Could not copy the report."), "warn");
+  }
+}
+
 function onFix(fix) {
   const first = !state.me;
   state.me = fix;
   state.geoDenied = false;
   state.geoFailed = false;
+  locationPaused = null;
   // A timed share behind a closed app cannot be left to setTimeout: the page is
   // hidden and hidden pages get their timers throttled. Each fix the service
   // pushes runs JS whatever the renderer thinks about timers, so the deadline is
@@ -4865,6 +5150,12 @@ function onGeoError(err) {
   if (err && err.code === 1) {
     state.geoDenied = true;
     if (state.sharing) stopSharingInternals();
+  } else if (err && err.native && err.stopped && (err.route === "system" || err.route === "stalled")) {
+    // Android ended it, not the person: stays armed, so opening the app puts it back.
+    const route = err.route;
+    if (state.sharing) setSharing(false, { keepArmed: true });
+    state.stopRecord = { route, at: Date.now() };
+    shareResumeTried = false;
   } else if (err && err.native) {
     // The foreground service quit (notification Stop, refused start, no
     // provider) and will not retry. Anything short of a full stop here would
@@ -4893,26 +5184,54 @@ function onGeoError(err) {
 }
 
 async function sendLoc(force = false) {
-  if (!state.sharing || state.demo || !state.me || !sender) return;
-  if (!force && lastSentPos && Date.now() - lastSentPos.at < 3000) return;
-  lastSentPos = { lat: state.me.lat, lon: state.me.lon, at: Date.now() };
-  try {
-    await sendMsg(state.sosActive ? "sos" : "loc");
-    if (state.clockError) {
-      state.clockError = null;
-      render();
-    }
-  } catch (e) {
-    // The poll loop surfaces ordinary connectivity trouble; a refused epoch is
-    // not ordinary and gets said out loud.
-    await noteSendFailure(e);
+  if (!state.sharing || state.demo || !state.me) return;
+  // With location off, resending would show a live dot in the wrong place. An SOS still goes.
+  if (locationPaused && !state.sosActive) return;
+  if (!sender) {
+    sendWhenReady = true;
+    return;
   }
-  // Helpers watching the beacon get the same fixes as the circle.
-  if (beacon) await pushBeacon();
+  if (!force && lastSentPos && Date.now() - lastSentPos.at < 3000) return;
+  if (sendBusy) {
+    sendAgain = true;
+    return;
+  }
+  lastSentPos = { lat: state.me.lat, lon: state.me.lon, at: Date.now() };
+  sendBusy++;
+  try {
+    try {
+      await sendMsg(state.sosActive ? "sos" : "loc");
+      shareStats.ok++;
+      shareStats.lastOkAt = Date.now();
+      if (state.clockError) {
+        state.clockError = null;
+        render();
+      }
+    } catch (e) {
+      shareStats.failed++;
+      shareStats.lastErr = sendErrorKind(e);
+      shareStats.lastErrAt = Date.now();
+      // The poll loop surfaces ordinary connectivity trouble; a refused epoch is
+      // not ordinary and gets said out loud.
+      await noteSendFailure(e);
+    }
+    // Helpers watching the beacon get the same fixes as the circle.
+    if (beacon) await pushBeacon();
+  } finally {
+    sendBusy--;
+  }
+  if (sendAgain && state.sharing) {
+    sendAgain = false;
+    return sendLoc(true);
+  }
+  sendAgain = false;
+  pulseWrapper();
 }
 
 async function sendMsg(type) {
   if (state.demo || !sender) return;
+  // A re-key can null the live sender during the battery read below.
+  const via = sender;
   const fields = {
     t: type,
     name: state.profile?.name || "Someone",
@@ -4950,7 +5269,7 @@ async function sendMsg(type) {
   }
   const bat = await batteryLevel();
   if (bat != null) fields.bat = bat;
-  await sender.send(fields);
+  await via.send(fields);
 }
 
 async function doCheckin() {
@@ -5139,7 +5458,7 @@ function notifyEvent(title, body, tag, urgent = false) {
   // The demo is a scripted story. Its fake SOS must never reach the phone's
   // real notification tray, where nothing marks it as fiction.
   if (state.demo) return;
-  if (document.visibilityState === "visible") return;
+  if (pageShown()) return;
   const n = native();
   if (!n?.notify) return;
   try {
@@ -5397,7 +5716,7 @@ async function ensureWakeLock() {
     state.settings.wakeLock &&
     !foreground &&
     state.screen === "map" &&
-    document.visibilityState === "visible";
+    pageShown();
   try {
     if (want && !wakeLock && navigator.wakeLock?.request) {
       wakeLock = await navigator.wakeLock.request("screen");
@@ -5524,6 +5843,13 @@ if (debugHooks()) window.__starlingInternals = {
   setSharing,
   setupNet,
   resumeShareIfArmed,
+  sendLoc,
+  onShareSignal,
+  sendStatus: () => ({ busy: sendBusy, again: sendAgain, whenReady: sendWhenReady, stats: { ...shareStats }, locationPaused }),
+  buildShareReport,
+  healthCard,
+  hasSender: () => !!sender,
+  teardownNet,
   resetShareResumeGuard: () => {
     shareResumeTried = false;
     shareResumed = false;
@@ -5546,8 +5872,13 @@ window.addEventListener("online", () => {
 // has been off for a week is holding a week of chain keys until something walks
 // them forward, and nothing else does.
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState !== "visible" || state.locked) return;
+  if (!pageShown() || state.locked) return;
   syncRatchet().catch(() => {});
+  healthAt = 0;
+  if (!state.sharing && (state.stopRecord?.route === "system" || state.stopRecord?.route === "stalled")) {
+    resumeShareIfArmed().catch((e) => window.__starlingErrors.push(`share resume: ${String(e)}`));
+  }
+  render();
 });
 window.addEventListener("offline", () => {
   state.offline = true;
@@ -5605,7 +5936,7 @@ async function boot() {
       const raw = native()?.readStopRecord?.();
       if (raw) {
         const rec = JSON.parse(raw);
-        if (rec && (rec.route === "notif" || rec.route === "swipe" || rec.route === "renderer")) state.stopRecord = rec;
+        if (rec && STOP_ROUTES.has(rec.route)) state.stopRecord = rec;
       }
     } catch {
       // a malformed native record is not worth failing boot over

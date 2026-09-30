@@ -8,7 +8,7 @@
 import { bearingDeg, compassWord, fmtDistance, fmtRelTime, haversineMeters } from "./fmt.js";
 import { HISTORY_CHOICES } from "./ratchet.js";
 import { t, LOCALE_CHOICES } from "./i18n.js";
-import { native } from "./env.js";
+import { native, pageShown } from "./env.js";
 import { PLACE_RADII, MAX_PLACES, MAX_NAME_LEN } from "./places.js";
 import { VERSION } from "./version.js";
 
@@ -591,7 +591,7 @@ function scheduleClipboardClear(text) {
   clearTimeout(clipTimer);
   clipTimer = setTimeout(async () => {
     const announce = () => {
-      if (document.visibilityState === "visible") toast("Invite link cleared from your clipboard.");
+      if (pageShown()) toast("Invite link cleared from your clipboard.");
     };
     const n = native();
     if (n?.clearClipboardIf) {
@@ -1650,7 +1650,7 @@ export function openPasscodeSheet({ title, intro, cta, confirm = false, current 
   return ov;
 }
 
-export function openSettingsSheet({ api, values, demo, tor, keepSharing, lock, lockActions, onChange, onMembers, onInvite, onPlaces, onPanic, onLeave, onExport, onClose }) {
+export function openSettingsSheet({ api, values, demo, tor, keepSharing, background, lock, lockActions, onChange, onMembers, onInvite, onPlaces, onPanic, onLeave, onExport, onClose }) {
   const ov = openOverlay({ title: "Settings", testid: "settings-sheet", className: "ov-settings", onClose });
   const b = ov.body;
 
@@ -1823,6 +1823,54 @@ export function openSettingsSheet({ api, values, demo, tor, keepSharing, lock, l
     });
     row.dataset.testid = "settings-keep-sharing";
     gShare.append(row);
+  }
+
+  // Repainted on refresh: the change happens in a system screen with this sheet open.
+  let paintBackground = null;
+  if (background) {
+    const box = el("div", "field");
+    box.dataset.testid = "settings-background";
+    box.append(el("span", "field-label", "Running in the background"));
+    const status = el("div", "set-background");
+    let painted = null;
+    paintBackground = () => {
+      const mode = background.state();
+      if (mode === painted) return;
+      painted = mode;
+      const note =
+        mode === "unrestricted"
+          ? t("Unrestricted. Android lets Starling keep a share going with the screen off.")
+          : mode === "restricted"
+            ? t("Restricted. Android stops Starling about a minute after you leave it, and a share stops with it. Set battery use to Unrestricted in the app's settings.")
+            : t("Optimized. Android may pause Starling to save battery while the screen is off, which can stop your circle seeing you move. Allowing it to run in the background prevents that.");
+      const kids = [el("p", "field-note", note)];
+      if (mode === "optimized") {
+        const allow = btn("btn btn-secondary", "Allow background running");
+        allow.dataset.testid = "settings-battery-allow";
+        allow.addEventListener("click", () => background.onAllow());
+        kids.push(allow);
+      } else if (mode === "restricted") {
+        const open = btn("btn btn-secondary", "Open app settings");
+        open.dataset.testid = "settings-battery-open";
+        open.addEventListener("click", () => background.onOpen());
+        kids.push(open);
+      }
+      status.replaceChildren(...kids);
+    };
+    paintBackground();
+    box.append(status);
+    const report = btn("btn btn-secondary", "Copy sharing report");
+    report.dataset.testid = "settings-share-report";
+    report.addEventListener("click", () => background.onCopyReport());
+    box.append(
+      report,
+      el(
+        "p",
+        "field-note",
+        "For a bug report: versions, permissions, battery settings and counts. It has no locations, no keys and no names in it.",
+      ),
+    );
+    gShare.append(box);
   }
 
   // Alerts
@@ -2178,6 +2226,7 @@ export function openSettingsSheet({ api, values, demo, tor, keepSharing, lock, l
     refresh: () => {
       historyField?.setValue(api.state.settings.history);
       steadyRow?.setValue(api.state.settings.steady);
+      paintBackground?.();
     },
   };
 }

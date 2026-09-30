@@ -25,7 +25,7 @@ const add = (s) => {
   keys.add(n);
 };
 
-const JS_FILES = ["app/js/main.js", "app/js/ui.js", "app/js/helpview.js", "app/js/fmt.js", "app/js/demo.js"];
+const JS_FILES = ["app/js/main.js", "app/js/ui.js", "app/js/helpview.js", "app/js/fmt.js", "app/js/demo.js", "app/js/sharehealth.js"];
 
 // Unescape the source spelling of a double-quoted literal.
 const unq = (s) => s.replaceAll('\\"', '"').replaceAll("\\'", "'").replaceAll("\\n", " ");

@@ -1824,6 +1824,12 @@ a.land-download {
   gap: 8px;
 }
 
+.set-background {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 /* Sentence case at 13px so field labels read apart from the uppercase
    group titles above them. */
 .field-label {

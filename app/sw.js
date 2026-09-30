@@ -1,6 +1,6 @@
 // Starling service worker. App shell only; location data never touches a cache.
 
-const VERSION = "starling-v27";
+const VERSION = "starling-v28";
 
 const PRECACHE = [
   "/",
@@ -33,6 +33,7 @@ const PRECACHE = [
   "/js/places.js",
   "/js/outbox.js",
   "/js/export.js",
+  "/js/sharehealth.js",
   "/js/i18n.js",
   "/js/strings-es.js",
   "/js/version.js",

@@ -23,7 +23,7 @@ import {
 import { openMessage, sealMessage, buildPost } from "./crypto.js";
 import { admitPinned, keyChangeVerdict } from "./roster.js";
 import { EPOCH_MS, epochAt } from "./ratchet.js";
-import { apiUrl, isWrapped } from "./env.js";
+import { apiUrl, isWrapped, pageShown } from "./env.js";
 
 const POLL_MS = 10000;
 // The wrapper keeps listening while hidden, at a relaxed cadence: an SOS is
@@ -295,7 +295,8 @@ export function createPoller({ channelId, roster, ratchet, onChange, onStatus, o
   }
 
   const bgCapable = isWrapped();
-  const cadence = () => pollDelay(document.visibilityState === "hidden", bgCapable);
+  // Shown, not visible: a thaw must not switch the poll to the foreground pace.
+  const cadence = () => pollDelay(!pageShown(), bgCapable);
 
   async function poll() {
     if (!running || inFlight) return;
@@ -350,12 +351,11 @@ export function createPoller({ channelId, roster, ratchet, onChange, onStatus, o
     }
   }
 
+  // Going away reschedules nothing in the wrapper: every thaw pushed the poll back.
   function onVisibility() {
-    if (document.visibilityState === "visible") {
+    if (pageShown()) {
       poll();
-    } else if (bgCapable) {
-      schedule(cadence());
-    } else {
+    } else if (!bgCapable) {
       clearTimeout(timer);
       onStatus?.("idle");
     }
