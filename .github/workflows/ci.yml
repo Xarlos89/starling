@@ -27,9 +27,10 @@ jobs:
         with:
           python-version: '3.12'
       - name: QR ground-truth tools (dev-only)
-        run: |
-          python -m pip install qrcode numpy pillow
-          sudo apt-get install -y --no-install-recommends zbar-tools
+        run: python -m pip install qrcode numpy pillow
+      - name: zbar, the independent second reader (Linux runners only)
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y --no-install-recommends zbar-tools
       - name: Vendor sync
         run: npm ci && bash tools/sync-vendor.sh
         shell: bash
@@ -63,12 +64,12 @@ jobs:
           cd ios && xcodebuild -project Starling.xcodeproj -target Starling \
             -configuration Release -sdk iphonesimulator \
             CODE_SIGNING_ALLOWED=NO SYMROOT="$PWD/build" build
-      - name: Only the location prompt, no ATS holes
+      - name: Only the location and camera prompts, no ATS holes
         run: |
           plist=ios/build/Release-iphonesimulator/Starling.app/Info.plist
           out=$(plutil -p "$plist")
           echo "$out"
-          if echo "$out" | grep -E "UsageDescription" | grep -v "NSLocationWhenInUseUsageDescription"; then
+          if echo "$out" | grep -E "UsageDescription" | grep -v "NSLocationWhenInUseUsageDescription" | grep -v "NSCameraUsageDescription"; then
             echo "an unexpected permission prompt crept into the manifest"; exit 1
           fi
           if echo "$out" | grep "NSAppTransportSecurity"; then
@@ -107,6 +108,7 @@ jobs:
             | grep -v "android.permission.WAKE_LOCK" \
             | grep -v "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" \
             | grep -v "android.permission.USE_BIOMETRIC" \
+            | grep -v "android.permission.CAMERA" \
             | grep -v "DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"; then
             echo "unexpected permission crept into the manifest"; exit 1
           fi
