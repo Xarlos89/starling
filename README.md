@@ -339,6 +339,13 @@ open them.
   tested "Keep sharing when the app is closed" on their own Pixels and kept
   reporting until it actually worked, which is how 0.13.3 and 0.13.4 happened.
 
+## Questions
+
+Ask in [Discussions](https://github.com/munzzyy/starling/discussions/categories/q-a).
+Bugs and feature requests go in [issues](https://github.com/munzzyy/starling/issues),
+and security problems go by email, as the
+[security policy](https://github.com/munzzyy/starling/security/policy) explains.
+
 ## Support
 
 Starling is free and stays free. If you want to help keep it going, you can
