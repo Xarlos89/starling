@@ -12,6 +12,20 @@ accounts, no phone numbers, and a relay that stores nothing it could ever read.
 grab the Android app there, from F-Droid, or from the
 [releases page](https://github.com/munzzyy/starling/releases).
 
+Life360 works by shipping everyone's location to a company. Starling keeps the
+Life360 features people actually want (live map of your people, SOS, check-ins,
+battery, invite links) and drops the surveillance: positions are encrypted on
+your device with a key the server never sees, and the relay holds at most 24
+hours of ciphertext.
+
+![The map with your circle on it](test/screenshots/hero-dark-map.png)
+
+Circles are plural. Keep one for family and one for the friends you split up
+from at a fair or a concert, and switch between them with a tap on the circle
+name. Each circle has its own secret, its own channel, and its own signing
+identity, so the relay cannot tell that two circles share a member. The map,
+sharing, and invites all follow whichever circle is active.
+
 This document describes protocol v2: forward secrecy, post-compromise
 security, and cryptographic member removal. As of 0.5.0 it is wired end to
 end, crypto core through relay through storage through UI, on both web and
@@ -21,20 +35,6 @@ project has independently reviewed any of it. See
 [docs/AUDIT.md](docs/AUDIT.md) for exactly what has and has not been
 checked, including whether the live relay has actually been redeployed to
 speak v2 yet.
-
-Life360 works by shipping everyone's location to a company. Starling keeps the
-Life360 features people actually want (live map of your people, SOS, check-ins,
-battery, invite links) and drops the surveillance: positions are encrypted on
-your device with a key the server never sees, and the relay holds at most 24
-hours of ciphertext.
-
-Circles are plural. Keep one for family and one for the friends you split up
-from at a fair or a concert, and switch between them with a tap on the circle
-name. Each circle has its own secret, its own channel, and its own signing
-identity, so the relay cannot tell that two circles share a member. The map,
-sharing, and invites all follow whichever circle is active.
-
-![The map with your circle on it](test/screenshots/hero-dark-map.png)
 
 ## How it works
 
