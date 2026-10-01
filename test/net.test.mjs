@@ -25,7 +25,11 @@ import { MEMBER_CAP, TTL_MS, memberIdFromKeys, b64uEncode } from "../app/js/wire
 const A = "a".repeat(32);
 const B = "b".repeat(32);
 const CHANNEL = "c".repeat(32);
-const E0 = 2980471;
+// The sender derives the key for the real current epoch, and the ratchet
+// refuses to catch up more than MAX_CATCHUP_EPOCHS (30 days) past its start.
+// A fixed epoch here turned into a date bomb: it passed for a month and then
+// every send failed with "no key for epoch". Anchor it to today instead.
+const E0 = epochAt(Date.now()) - 12;
 const at = (e) => e * EPOCH_MS;
 
 function stubGlobals(responses, calls) {
