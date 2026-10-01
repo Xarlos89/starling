@@ -230,7 +230,7 @@ object PageHost {
             // and a mistake elsewhere must not turn into a camera grant.
             override fun onPermissionRequest(request: PermissionRequest) {
                 val origin = request.origin
-                val ours = origin.scheme == "https" && origin.host == MainActivity.ASSET_HOST
+                val ours = origin.toString() == "https://${MainActivity.ASSET_HOST}"
                 val video = request.resources.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
                 val ui = activity
                 if (!ours || !video || ui == null) {

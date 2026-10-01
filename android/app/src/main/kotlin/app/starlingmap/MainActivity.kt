@@ -276,7 +276,9 @@ class MainActivity : FragmentActivity() {
     // No in-flight flag: a launch while another prompt (location, say) is up
     // is dropped by the framework with no result, and a flag would then
     // keep every later tap from asking at all. A second launch while the
-    // camera prompt itself is up is ignored the same way, harmlessly.
+    // camera prompt itself is up comes back false and dismisses the dialog;
+    // the page never asks twice at once (the scan sheet awaits the bridge),
+    // and a dropped ask is simply retried on the next tap.
     fun requestCameraPermission() {
         if (hasCameraPermission()) return
         cameraPermission.launch(Manifest.permission.CAMERA)

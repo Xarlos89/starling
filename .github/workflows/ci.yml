@@ -26,8 +26,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: QR ground-truth tool (dev-only)
-        run: python -m pip install qrcode
+      - name: QR ground-truth tools (dev-only)
+        run: |
+          python -m pip install qrcode numpy pillow
+          sudo apt-get install -y --no-install-recommends zbar-tools
       - name: Vendor sync
         run: npm ci && bash tools/sync-vendor.sh
         shell: bash

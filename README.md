@@ -308,22 +308,28 @@ instead of opening.
 
 ## Roadmap
 
+What is left needs someone other than this repo's code: an outside reviewer,
+a native speaker, a store account, or a design decision.
+
 - An independent security review. Nothing else on this list matters as much;
   see [docs/AUDIT.md](docs/AUDIT.md) for where to start.
-- Native-speaker review of the German, French and Brazilian Portuguese
-  catalogs. They ship as first passes; Spanish went through a line by line
-  review (#1) and the other three want the same. One file per language in
-  `app/js/strings-*.js`, English on the left. More languages are welcome:
-  `node tools/extract-strings.mjs` prints the full catalog for a new one, and
-  a test holds every catalog to full coverage. RTL layout polish lands with
-  the first RTL translation.
+- Native-speaker review of the German (#14), French (#15) and Brazilian
+  Portuguese (#16) catalogs. They ship as first passes; Spanish went through
+  a line by line review (#1) and the other three want the same. One file per
+  language in `app/js/strings-*.js`, English on the left. More languages are
+  welcome: `node tools/extract-strings.mjs` prints the full catalog for a new
+  one, and a test holds every catalog to full coverage. RTL layout polish
+  lands with the first RTL translation.
 - Google Play, still not live.
-- QR scan for safety numbers, alongside the tap-to-enlarge in-person compare
-  that exists today.
-- Per-circle sharing settings (precision, cadence), and being visible to more
-  than one circle at once.
-- Argon2id (memory-hard) app-lock KDF via a vetted WASM build
-- One-time guest links as short-lived side circles
+- Being visible to more than one circle at once. Precision and cadence are
+  per circle now; sharing itself still goes to the active circle only, and
+  posting to several means one ratchet, one channel and one outbox each,
+  which is a design pass, not an afternoon.
+- One-time guest links as short-lived side circles.
+- A real-phone pass over the QR scan: the decoder is proven on rendered and
+  distorted codes and the camera path on an emulator, not yet on a phone
+  camera pointed at another phone. The iOS wrapper has the camera
+  permission text but no one has run the scan on iOS.
 
 There is an iOS app now: a WKWebView wrapper around the same bundled app,
 in `ios/`, that holds a real circle. It is build-from-source only today: a
