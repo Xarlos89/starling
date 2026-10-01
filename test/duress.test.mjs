@@ -4,7 +4,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { makeDuressRecord, matchesDuress, PBKDF2_ITERS } from "../app/js/lock.js";
+import { makeDuressRecord, matchesDuress, PBKDF2_ITERS, ARGON2_PARAMS } from "../app/js/lock.js";
 
 test("duress record matches its passcode and nothing else", async () => {
   const rec = await makeDuressRecord("0000");
@@ -16,8 +16,8 @@ test("duress record matches its passcode and nothing else", async () => {
 
 test("duress record is a hash with a real KDF cost, not a wrapped key", async () => {
   const rec = await makeDuressRecord("0000");
-  assert.equal(rec.kdf, "pbkdf2-sha256");
-  assert.ok(rec.iters >= PBKDF2_ITERS, "same OWASP floor as the unlock passcode");
+  assert.equal(rec.kdf, "argon2id");
+  assert.deepEqual({ t: rec.t, m: rec.m, p: rec.p }, { ...ARGON2_PARAMS }, "same cost as the unlock passcode");
   assert.equal(rec.salt.length, 16);
   assert.equal(rec.hash.length, 32);
   // No nonce, no ciphertext: there is nothing here that could decrypt into
@@ -40,5 +40,15 @@ test("tampered or malformed records fail closed", async () => {
   assert.equal(await matchesDuress(flipped, "0000"), false);
   assert.equal(await matchesDuress(null, "0000"), false);
   assert.equal(await matchesDuress({}, "0000"), false);
-  assert.equal(await matchesDuress({ kdf: "pbkdf2-sha256", salt: rec.salt, iters: rec.iters, hash: "junk" }, "0000"), false);
+  assert.equal(await matchesDuress({ kdf: "pbkdf2-sha256", salt: rec.salt, iters: PBKDF2_ITERS, hash: "junk" }, "0000"), false);
+  assert.equal(await matchesDuress({ ...rec, m: 2 ** 30 }, "0000"), false, "a tampered cost never allocates");
+  assert.equal(await matchesDuress({ ...rec, kdf: "md5" }, "0000"), false);
+});
+
+test("a PBKDF2 duress record from before 0.16 still matches its code", async () => {
+  const rec = await makeDuressRecord("4321", PBKDF2_ITERS);
+  assert.equal(rec.kdf, "pbkdf2-sha256");
+  assert.equal(rec.iters, PBKDF2_ITERS);
+  assert.ok(await matchesDuress(rec, "4321"));
+  assert.equal(await matchesDuress(rec, "4322"), false);
 });

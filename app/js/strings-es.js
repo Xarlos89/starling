@@ -559,4 +559,5 @@ export const es = {
   "Starling will use {host}.": "Starling usará {host}.",
   "Starling will use the default relay.": "Starling usará el relay predeterminado.",
   "Only if you run a relay yourself. Everyone in your circle has to use the same one, and the invite links you send carry it.": "Solo si tienes tu propio relay. Todos en tu círculo tienen que usar el mismo, y los enlaces de invitación que envíes lo llevan.",
+  "This device could not run the lock's key stretching. Nothing was erased; try again, or free some memory.": "Este dispositivo no pudo ejecutar la derivación de clave del bloqueo. No se ha borrado nada; inténtalo de nuevo o libera algo de memoria.",
 };

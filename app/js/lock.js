@@ -6,7 +6,7 @@
 // Wrapped-vault-key model (the pattern password managers use):
 //   K            a random 32-byte vault key, made when lock is first enabled
 //   vaultSecret  the circle secret, AES-GCM encrypted under K
-//   passcode  -> PBKDF2-SHA-256 -> AES-GCM key that wraps K
+//   passcode  -> Argon2id -> AES-GCM key that wraps K
 //   biometric -> WebAuthn PRF secret -> HKDF -> AES-GCM key that wraps K
 // Both unlock paths recover the same K, so changing the passcode or adding a
 // biometric only re-wraps K, and rotating the circle only re-encrypts
@@ -17,11 +17,17 @@
 
 import { b64uEncode, b64uDecode } from "./wire.js";
 import { native } from "./env.js";
+import { argon2id, ARGON2_PARAMS, validParams, KdfUnavailableError } from "./argon2.js";
+
+export { ARGON2_PARAMS, KdfUnavailableError };
 
 const subtle = globalThis.crypto.subtle;
 const te = new TextEncoder();
 
-// OWASP Password Storage Cheat Sheet (2024) floor for PBKDF2-HMAC-SHA256.
+// Records written before 0.16 stretch the passcode with PBKDF2 instead. They
+// still open, and the first successful unlock re-wraps K under Argon2id.
+// This is the OWASP Password Storage Cheat Sheet (2024) floor for
+// PBKDF2-HMAC-SHA256, the cost those records carry.
 export const PBKDF2_ITERS = 600000;
 // Fixed PRF input. The per-credential PRF output is the entropy; this label
 // only namespaces it and must stay stable across versions.
@@ -87,51 +93,115 @@ async function pbkdf2WrapKey(passcode, salt, iters) {
   );
 }
 
-// Wrap the vault key K with a passcode. Returns the on-disk passcode record.
-export async function makePasscodeRecord(passcode, vaultKeyBytes, iters = PBKDF2_ITERS) {
-  const salt = randomBytes(16);
-  const wrapKey = await pbkdf2WrapKey(passcode, salt, iters);
-  const { nonce, ct } = await wrap(wrapKey, vaultKeyBytes);
-  return { v: 1, kdf: "pbkdf2-sha256", iters, salt, nonce, ct };
+async function argon2Bits(passcode, salt, params) {
+  const pwd = te.encode(passcode);
+  try {
+    return await argon2id({ password: pwd, salt, t: params.t, m: params.m, p: params.p, outLen: 32 });
+  } finally {
+    zero(pwd);
+  }
 }
 
-// Returns the unwrapped vault key K, or null on a wrong passcode.
+async function argon2WrapKey(passcode, salt, params) {
+  const raw = await argon2Bits(passcode, salt, params);
+  try {
+    return await aesKey(raw, ["encrypt", "decrypt"]);
+  } finally {
+    zero(raw);
+  }
+}
+
+// A number as the third argument writes the pre-0.16 PBKDF2 shape with that
+// iteration count, so tests can hold the records older installs carry.
+const legacyIters = (kdf) => (typeof kdf === "number" ? kdf : null);
+
+// Wrap the vault key K with a passcode. Returns the on-disk passcode record.
+export async function makePasscodeRecord(passcode, vaultKeyBytes, kdf = ARGON2_PARAMS) {
+  const salt = randomBytes(16);
+  const iters = legacyIters(kdf);
+  if (iters !== null) {
+    const wrapKey = await pbkdf2WrapKey(passcode, salt, iters);
+    const { nonce, ct } = await wrap(wrapKey, vaultKeyBytes);
+    return { v: 1, kdf: "pbkdf2-sha256", iters, salt, nonce, ct };
+  }
+  if (!validParams(kdf)) throw new RangeError("argon2 parameters out of range");
+  const wrapKey = await argon2WrapKey(passcode, salt, kdf);
+  const { nonce, ct } = await wrap(wrapKey, vaultKeyBytes);
+  return { v: 2, kdf: "argon2id", t: kdf.t, m: kdf.m, p: kdf.p, salt, nonce, ct };
+}
+
+// Returns the unwrapped vault key K, or null on a wrong passcode. A record
+// whose KDF cannot run here throws KdfUnavailableError rather than reading
+// as a wrong passcode: that is a device problem, and the lock screen says so.
 export async function openPasscodeRecord(record, passcode) {
-  if (!record || record.kdf !== "pbkdf2-sha256") return null;
-  const wrapKey = await pbkdf2WrapKey(passcode, record.salt, record.iters);
-  return unwrap(wrapKey, record.nonce, record.ct);
+  if (!record || !(record.salt instanceof Uint8Array)) return null;
+  if (record.kdf === "pbkdf2-sha256") {
+    if (!Number.isInteger(record.iters) || record.iters < 1) return null;
+    const wrapKey = await pbkdf2WrapKey(passcode, record.salt, record.iters);
+    return unwrap(wrapKey, record.nonce, record.ct);
+  }
+  if (record.kdf === "argon2id") {
+    if (!validParams(record)) return null;
+    const wrapKey = await argon2WrapKey(passcode, record.salt, record);
+    return unwrap(wrapKey, record.nonce, record.ct);
+  }
+  return null;
+}
+
+// True when an unlock should re-wrap K under today's KDF: a PBKDF2 record
+// from before 0.16, or an Argon2id record below the current cost.
+export function passcodeNeedsRewrap(record) {
+  if (!record) return false;
+  if (record.kdf !== "argon2id") return true;
+  return record.t < ARGON2_PARAMS.t || record.m < ARGON2_PARAMS.m;
 }
 
 // -------------------------------------------------------------- duress verifier
 // A duress passcode never unlocks anything, so unlike the real passcode it
-// cannot use the GCM tag of a wrapped key as its verifier; it stores a PBKDF2
-// hash instead. That record sits on disk in the clear, which means a forensic
+// cannot use the GCM tag of a wrapped key as its verifier; it stores an
+// Argon2id hash instead. That record sits on disk in the clear, which means a forensic
 // look at storage can tell a duress code EXISTS. It cannot tell what it is,
 // and someone watching a passcode being typed cannot tell the two apart, which
 // is the property the feature is for. The threat model states this honestly.
 
-export async function makeDuressRecord(passcode, iters = PBKDF2_ITERS) {
+export async function makeDuressRecord(passcode, kdf = ARGON2_PARAMS) {
   const salt = randomBytes(16);
-  const base = await subtle.importKey("raw", te.encode(passcode), "PBKDF2", false, ["deriveBits"]);
-  const bits = new Uint8Array(
-    await subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: iters }, base, 256),
-  );
-  return { v: 1, kdf: "pbkdf2-sha256", iters, salt, hash: bits };
+  const iters = legacyIters(kdf);
+  if (iters !== null) {
+    const base = await subtle.importKey("raw", te.encode(passcode), "PBKDF2", false, ["deriveBits"]);
+    const bits = new Uint8Array(
+      await subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: iters }, base, 256),
+    );
+    return { v: 1, kdf: "pbkdf2-sha256", iters, salt, hash: bits };
+  }
+  if (!validParams(kdf)) throw new RangeError("argon2 parameters out of range");
+  const hash = await argon2Bits(passcode, salt, kdf);
+  return { v: 2, kdf: "argon2id", t: kdf.t, m: kdf.m, p: kdf.p, salt, hash };
 }
 
 export async function matchesDuress(record, passcode) {
-  if (!record || record.kdf !== "pbkdf2-sha256" || !(record.hash instanceof Uint8Array)) return false;
-  const base = await subtle.importKey("raw", te.encode(passcode), "PBKDF2", false, ["deriveBits"]);
-  const bits = new Uint8Array(
-    await subtle.deriveBits(
-      { name: "PBKDF2", hash: "SHA-256", salt: record.salt, iterations: record.iters },
-      base,
-      256,
-    ),
-  );
+  if (!record || !(record.hash instanceof Uint8Array) || !(record.salt instanceof Uint8Array)) return false;
+  let bits;
+  if (record.kdf === "pbkdf2-sha256") {
+    if (!Number.isInteger(record.iters) || record.iters < 1) return false;
+    const base = await subtle.importKey("raw", te.encode(passcode), "PBKDF2", false, ["deriveBits"]);
+    bits = new Uint8Array(
+      await subtle.deriveBits(
+        { name: "PBKDF2", hash: "SHA-256", salt: record.salt, iterations: record.iters },
+        base,
+        256,
+      ),
+    );
+  } else if (record.kdf === "argon2id") {
+    if (!validParams(record)) return false;
+    bits = await argon2Bits(passcode, record.salt, record);
+  } else {
+    return false;
+  }
   if (bits.length !== record.hash.length) return false;
   let diff = 0;
   for (let i = 0; i < bits.length; i++) diff |= bits[i] ^ record.hash[i];
+  zero(bits);
   return diff === 0;
 }
 

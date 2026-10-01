@@ -72,8 +72,10 @@ speak v2 yet.
   fetch in the whole app is OpenStreetMap tiles, and only when a street basemap
   is on; the Off-grid basemap renders locally and makes zero requests.
 - Optional app lock encrypts the circle secret at rest behind a passcode
-  (PBKDF2-SHA-256, 600k iterations) and, where the browser supports it, a
-  biometric unlock through the WebAuthn PRF extension. A locked device holds no
+  (Argon2id, 64 MiB and three passes, from a reproducible build of the
+  reference implementation: [docs/ARGON2.md](docs/ARGON2.md)) and, where
+  the browser supports it, a biometric unlock through the WebAuthn PRF
+  extension. A locked device holds no
   readable secret in memory or on disk. An optional duress passcode, typed on
   the lock screen, runs the full panic wipe and comes back up as a fresh
   install.

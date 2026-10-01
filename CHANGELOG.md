@@ -3,6 +3,18 @@
 All notable changes to Starling are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
+## [Unreleased]
+
+- **Argon2id behind the app lock.** The passcode is stretched with Argon2id
+  (64 MiB, three passes) instead of PBKDF2, so every guess costs an attacker
+  the memory it costs your phone. The function is the Argon2 reference
+  implementation compiled to a WebAssembly module that imports nothing, built
+  from a pinned commit with every source file's hash checked, and the app
+  hashes the module before it runs it. Existing locks keep opening; the next
+  time you type the passcode the key is re-wrapped under Argon2id. A duress code set earlier
+  keeps its old verifier until you set it again. docs/ARGON2.md has the
+  rebuild and check steps.
+
 ## [0.15.2]
 
 Invites work on your own relay.

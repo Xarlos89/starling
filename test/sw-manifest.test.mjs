@@ -88,6 +88,8 @@ const PRECACHE = [
   "/js/wire.js",
   "/js/crypto.js",
   "/js/qr.js",
+  "/js/argon2.js",
+  "/js/argon2.wasm",
   "/vendor/leaflet/leaflet.js",
   "/vendor/leaflet/leaflet.css",
   "/icons/starling.svg",

@@ -94,6 +94,8 @@ import {
   openBioRecord,
   makeDuressRecord,
   matchesDuress,
+  passcodeNeedsRewrap,
+  KdfUnavailableError,
   sealUnderVault,
   openUnderVault,
   bioAvailable,
@@ -3127,6 +3129,22 @@ function showLockError(msg) {
   $("#screen-lock").classList.add("shake");
 }
 
+// A record from before Argon2id, or one below today's cost, is re-wrapped
+// under the current KDF while the passcode is in hand. The old record stays
+// on disk until the new one is written, so a crash here changes nothing.
+async function rewrapPasscodeIfNeeded(pc) {
+  if (!state.vaultKey || !passcodeNeedsRewrap(state.lock?.pass)) return false;
+  try {
+    const pass = await makePasscodeRecord(pc, state.vaultKey);
+    state.lock = { ...state.lock, pass };
+    await dbSet("lock", state.lock);
+    return true;
+  } catch (e) {
+    window.__starlingErrors.push(`rewrap: ${String(e)}`);
+    return false;
+  }
+}
+
 function ensureLockUI() {
   if (lockWired) return;
   lockWired = true;
@@ -3146,17 +3164,20 @@ function ensureLockUI() {
     // wrong when it is not sends them looking for the wrong problem, and the
     // one thing that must never happen here is erasing a circle over it.
     damagedAtRest = false;
+    let kdfDown = false;
     try {
       ok = await unlockWith(() => openPasscodeRecord(state.lock.pass, pc));
     } catch (e) {
       ok = false;
       damagedAtRest = isSealedRecordError(e);
+      kdfDown = e instanceof KdfUnavailableError;
     }
+    if (ok) await rewrapPasscodeIfNeeded(pc);
     // The duress path: not an unlock, an erase. It runs the same panic wipe
     // the settings sheet offers and reloads into a fresh install, with
     // nothing shown in between: the screen someone is forced to type on must
     // never flash a hint that a second code exists.
-    if (!ok && !damagedAtRest && state.lock?.duress) {
+    if (!ok && !damagedAtRest && !kdfDown && state.lock?.duress) {
       let hit = false;
       try {
         hit = await matchesDuress(state.lock.duress, pc);
@@ -3175,7 +3196,9 @@ function ensureLockUI() {
       showLockError(
         damagedAtRest
           ? t("That passcode is right, but this install's stored data will not open. Nothing was erased.")
-          : t("Wrong passcode. Try again."),
+          : kdfDown
+            ? t("This device could not run the lock's key stretching. Nothing was erased; try again, or free some memory.")
+            : t("Wrong passcode. Try again."),
       );
     }
   });
@@ -6154,6 +6177,7 @@ if (debugHooks()) window.__starlingInternals = {
   saveForwardTid,
   forwardStatus,
   passcodeMatches,
+  rewrapPasscodeIfNeeded,
   resetForwardCache: () => {
     forwardAt = 0;
   },

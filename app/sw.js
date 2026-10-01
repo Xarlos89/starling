@@ -29,6 +29,8 @@ const PRECACHE = [
   "/js/helpsession.js",
   "/js/qr.js",
   "/js/lock.js",
+  "/js/argon2.js",
+  "/js/argon2.wasm",
   "/js/atrest.js",
   "/js/places.js",
   "/js/outbox.js",

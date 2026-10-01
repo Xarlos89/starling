@@ -10,6 +10,8 @@ import {
   openUnderVault,
   newVaultKey,
   PBKDF2_ITERS,
+  ARGON2_PARAMS,
+  passcodeNeedsRewrap,
   zero,
   randomBytes,
 } from "../app/js/lock.js";
@@ -25,9 +27,11 @@ test("passcode record round-trips the exact secret", async () => {
 
 test("record carries no plaintext secret and a real KDF cost", async () => {
   const rec = await makePasscodeRecord("pw", SECRET);
-  assert.equal(rec.kdf, "pbkdf2-sha256");
-  assert.equal(rec.iters, PBKDF2_ITERS);
-  assert.ok(rec.iters >= 600000, "OWASP floor for PBKDF2-SHA256");
+  assert.equal(rec.kdf, "argon2id");
+  assert.equal(rec.v, 2);
+  assert.deepEqual({ t: rec.t, m: rec.m, p: rec.p }, { ...ARGON2_PARAMS });
+  assert.ok(rec.m >= 19456 && rec.t >= 2, "OWASP floor for Argon2id");
+  assert.equal(rec.iters, undefined);
   assert.equal(rec.salt.length, 16);
   assert.equal(rec.nonce.length, 12);
   assert.equal(rec.ct.length, 48); // 32 secret + 16 GCM tag
@@ -66,6 +70,44 @@ test("unknown KDF is rejected", async () => {
   const rec = await makePasscodeRecord("pw", SECRET);
   assert.equal(await openPasscodeRecord({ ...rec, kdf: "md5" }, "pw"), null);
   assert.equal(await openPasscodeRecord(null, "pw"), null);
+});
+
+test("a PBKDF2 record from before 0.16 still opens, and is flagged for re-wrap", async () => {
+  const rec = await makePasscodeRecord("pw", SECRET, PBKDF2_ITERS);
+  assert.equal(rec.kdf, "pbkdf2-sha256");
+  assert.equal(rec.iters, PBKDF2_ITERS);
+  const back = await openPasscodeRecord(rec, "pw");
+  assert.deepEqual([...back], [...SECRET]);
+  assert.equal(await openPasscodeRecord(rec, "pw "), null);
+  assert.equal(passcodeNeedsRewrap(rec), true);
+  const fresh = await makePasscodeRecord("pw", back);
+  assert.equal(passcodeNeedsRewrap(fresh), false);
+  assert.deepEqual([...(await openPasscodeRecord(fresh, "pw"))], [...SECRET], "the re-wrapped record opens to the same K");
+  assert.equal(passcodeNeedsRewrap(null), false);
+});
+
+test("an Argon2id record below today's cost is flagged, one at it is not", async () => {
+  const weak = await makePasscodeRecord("pw", SECRET, { t: 1, m: 8192, p: 1 });
+  assert.equal(weak.kdf, "argon2id");
+  assert.equal(passcodeNeedsRewrap(weak), true);
+  assert.deepEqual([...(await openPasscodeRecord(weak, "pw"))], [...SECRET], "weak but genuine records still open");
+  assert.equal(passcodeNeedsRewrap({ ...weak, t: ARGON2_PARAMS.t, m: ARGON2_PARAMS.m }), false);
+});
+
+test("tampered Argon2id parameters fail closed without allocating", async () => {
+  const rec = await makePasscodeRecord("pw", SECRET, { t: 1, m: 8192, p: 1 });
+  for (const bad of [
+    { m: 2 ** 30 },
+    { m: 0 },
+    { t: 0 },
+    { t: 1000 },
+    { p: 64 },
+    { m: "8192" },
+    { salt: "not bytes" },
+  ]) {
+    assert.equal(await openPasscodeRecord({ ...rec, ...bad }, "pw"), null, JSON.stringify(bad));
+  }
+  await assert.rejects(makePasscodeRecord("pw", SECRET, { t: 1, m: 2 ** 30, p: 1 }), RangeError);
 });
 
 test("zero scrubs a buffer", () => {

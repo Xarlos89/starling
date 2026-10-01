@@ -51,7 +51,7 @@ const {
 const { epochAt, EPOCH_MS, MAX_CATCHUP_EPOCHS } = await import("../app/js/ratchet.js");
 const { createRoster } = await import("../app/js/net.js");
 const { welcomeContext, rosterConverged } = await import("../app/js/membership.js");
-const { newVaultKey, sealUnderVault, openUnderVault, makePasscodeRecord, openPasscodeRecord } = await import("../app/js/lock.js");
+const { newVaultKey, sealUnderVault, openUnderVault, makePasscodeRecord, openPasscodeRecord, PBKDF2_ITERS } = await import("../app/js/lock.js");
 const { GEN_SLOT, PINNED_SLOT, packGenMeta, writeRecordAtRest, writeCirclesAtRest } = await import("../app/js/circles.js");
 const { dbGet, dbSet, dbDel, wipeAll } = await import("../app/js/store.js");
 const { MEMBER_CAP, INVITE_TTL_MS, b64uEncode, b64uDecode, memberIdFromKeys } = await import("../app/js/wire.js");
@@ -1953,3 +1953,35 @@ test("the start screen sets a relay before the first circle, and refuses junk or
   }
 });
 
+
+test("a passcode unlock re-wraps a pre-0.16 PBKDF2 record under Argon2id, once", async () => {
+  const K = newVaultKey();
+  const legacy = { enabled: true, autolockMs: 60000, pass: await makePasscodeRecord("1357", K, PBKDF2_ITERS), bio: null };
+  state.lock = legacy;
+  state.vaultKey = K;
+  await dbSet("lock", legacy);
+  try {
+    assert.equal(await internals.rewrapPasscodeIfNeeded("1357"), true);
+    assert.equal(state.lock.pass.kdf, "argon2id");
+    assert.equal(state.lock.enabled, true, "the rest of the lock record rides along");
+    const onDisk = await dbGet("lock");
+    assert.equal(onDisk.pass.kdf, "argon2id", "the new record is what the disk holds");
+    assert.deepEqual([...(await openPasscodeRecord(onDisk.pass, "1357"))], [...K], "and it opens to the same vault key");
+    assert.equal(await openPasscodeRecord(onDisk.pass, "1358"), null);
+
+    const settled = state.lock;
+    assert.equal(await internals.rewrapPasscodeIfNeeded("1357"), false, "a current record is left alone");
+    assert.equal(state.lock, settled);
+
+    // No vault key in memory means no unlock happened; nothing is rewritten.
+    state.lock = legacy;
+    state.vaultKey = null;
+    await dbSet("lock", legacy);
+    assert.equal(await internals.rewrapPasscodeIfNeeded("1357"), false);
+    assert.equal((await dbGet("lock")).pass.kdf, "pbkdf2-sha256");
+  } finally {
+    state.lock = null;
+    state.vaultKey = null;
+    await dbDel("lock").catch(() => {});
+  }
+});

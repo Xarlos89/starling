@@ -123,7 +123,7 @@ than Cloudflare can run their own relay; see the FAQ and
 | A stranger who claims a member seat by posting to the circle channel first | refused: a `member` record is only ever honoured on an invite channel, sealed to a verified inviter's welcome context, never on a circle channel (`app/js/membership.js`, `circleControl`). A circle channel carries exactly one control type, `rekey`, and a re-key is only ever accepted from a sender already pinned before that ingest pass began (`app/js/net.js`, `wasPinned`), so a first-seen sender cannot pin itself and be obeyed in the same breath |
 | Malicious server operator shipping poisoned app JS | fatal, as for every web app including web clients of E2EE messengers. Mitigations: no third party scripts, strict CSP, subresource-free single origin, service worker pins the app shell. Real fix is a store-distributed native wrapper; the Android app already ships that way, though not yet through an app store, see "Distribution, honestly" below |
 | Stolen unlocked phone, app lock OFF | attacker sees what the app shows and holds the circle's current keys. Panic wipe clears local state; rotating the circle from another device cuts the stolen device off at the next re-key, and everything older than the stolen device's own retained window was already gone before it was stolen |
-| Stolen unlocked phone, app lock ON | the circle secret is AES-256-GCM encrypted at rest under a random vault key, itself wrapped by a PBKDF2-SHA-256 (600,000 iterations) key from the passcode and, optionally, a WebAuthn PRF secret or (Android) a Keystore key gated behind biometrics. A locked app holds no plaintext secret, vault key, or channel id in memory or on disk. `test/e2e_lock.py` asserts the plaintext secret is deleted the moment lock turns on and that a reload comes back with no derivable channel |
+| Stolen unlocked phone, app lock ON | the circle secret is AES-256-GCM encrypted at rest under a random vault key, itself wrapped by an Argon2id (64 MiB, three passes) key from the passcode and, optionally, a WebAuthn PRF secret or (Android) a Keystore key gated behind biometrics. A locked app holds no plaintext secret, vault key, or channel id in memory or on disk. `test/e2e_lock.py` asserts the plaintext secret is deleted the moment lock turns on and that a reload comes back with no derivable channel |
 | A device that missed more than 30 days of a generation's traffic | cannot advance that generation's ratchet further on its own (`MAX_CATCHUP_EPOCHS` refuses the jump); recovery is a fresh invite, the same path as a new member, not a silent failure that looks like a working app |
 | Malicious server operator shipping poisoned app JS on Android | does not apply the same way: the Android app's assets ship inside the signed APK, not fetched from the server on every load |
 | Malicious server operator targeting one visitor to `/help` (the beacon viewer, the one page the hosted site still serves for security-relevant work) | not stopped, only made checkable: `script-src 'self'`, no third party code, and published per-release asset hashes (`tools/asset-hashes.mjs`) turn a targeted swap into a detectable event for anyone who diffs the live page against the manifest, not a prevented one. See [docs/WEB-INTEGRITY.md](WEB-INTEGRITY.md) for why this is the honest ceiling and why circles never go through the browser at all |
@@ -255,8 +255,11 @@ than Cloudflare can run their own relay; see the FAQ and
     the Android app's foreground service is what actually solves this, at
     the cost of a persistent notification.
 12. **App-lock passcode strength is the user's.** The at-rest encryption is
-    only as strong as the passcode behind it; PBKDF2 raises the cost of each
-    guess but a four-digit PIN is still a four-digit PIN. There is no
+    only as strong as the passcode behind it; Argon2id makes each guess cost
+    64 MiB and three passes, which takes the GPU shortcut away, but a
+    four-digit PIN is still ten thousand guesses. The Argon2id runs inside a
+    WebAssembly module with no imports, built from the reference
+    implementation and hash-pinned by the loader ([ARGON2.md](ARGON2.md)). There is no
     passcode recovery by design: a forgotten passcode means erasing the
     device and rejoining from an invite, because the secret is genuinely
     unrecoverable without it.
@@ -289,8 +292,8 @@ than Cloudflare can run their own relay; see the FAQ and
 15. **A duress passcode's existence is visible in storage.** The unlock
     passcode's verifier is the GCM tag of a wrapped key, so it stores
     nothing that says "a passcode exists" beyond the lock itself. A duress
-    code unlocks nothing, so its verifier is a PBKDF2 hash sitting in the
-    clear, and anyone who reads the device's storage before the wipe can
+    code unlocks nothing, so its verifier is an Argon2id hash sitting in the
+    clear (PBKDF2 for a duress code set before 0.16, until it is set again), and anyone who reads the device's storage before the wipe can
     see that a duress code is configured, though not what it is. What the
     feature actually defends against is someone watching you type: the two
     codes are indistinguishable at the keyboard, and by the time storage
@@ -476,8 +479,9 @@ and why none of it weakens the core claim (the relay never sees a position).
   the same way PRF is (the key material never leaves secure hardware), and
   Android invalidates the Keystore key automatically when the user's
   biometric enrollment changes, closing the same "new fingerprint added by
-  an attacker" gap PRF closes on the web. The passcode path (PBKDF2-SHA-256,
-  600,000 iterations) is unchanged and remains the guaranteed unlock method.
+  an attacker" gap PRF closes on the web. The passcode path (Argon2id, the
+  same WebAssembly module as everywhere else) is unchanged and remains the
+  guaranteed unlock method.
 - **Foreground service visibility.** Background location sharing runs as an
   Android foreground service, which Android requires to show a persistent,
   non-dismissible notification the entire time it runs. This is a design
