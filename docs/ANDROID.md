@@ -153,6 +153,13 @@ in the query (`?api_key=`, `?token=`) works, which covers colota-forwarder,
 Reitti, Dawarich and Home Assistant's OwnTracks webhook. Nothing goes out while
 Tor mode is on.
 
+An optional tracker ID goes out as `tid`. colota-forwarder routes on it: a
+target with `TARGET_n_FILTER_TID` set only receives points whose `tid` matches,
+and skips the rest without logging anything, and its Home Assistant integration
+names the device after it (#10). Up to 64 characters, no control characters,
+the same rule the forwarder applies. It is a label, not a destination, so
+changing it needs no passcode.
+
 To test it on an emulator, debug builds trust user-added CAs
 (`debug-overrides` in `network_security_config.xml`, which release builds
 ignore). Make a throwaway CA and a certificate for `IP:10.0.2.2`, copy the CA

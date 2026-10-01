@@ -538,5 +538,13 @@ export const es = {
   "Use a full https address, like https://your-server/owntracks": "Usa una dirección https completa, como https://tu-servidor/owntracks",
   "While you share, your position also goes to {host}.": "Mientras compartes, tu ubicación también va a {host}.",
   "Your own server": "Tu propio servidor",
+  "A tracker ID goes out as tid with each position, so a forwarder or Home Assistant can tell this phone apart.": "Un ID de rastreador se envía como tid con cada ubicación, para que un reenviador o Home Assistant distinga este teléfono.",
+  "Sent with the tracker ID {tid}.": "Se envía con el ID de rastreador {tid}.",
+  "Set tracker ID": "Guardar ID de rastreador",
+  "That tracker ID did not work.": "Ese ID de rastreador no funcionó.",
+  "Tracker ID, like phone1 (optional)": "ID de rastreador, como telefono1 (opcional)",
+  "Use up to 64 characters for the tracker ID, on one line.": "Usa hasta 64 caracteres para el ID de rastreador, en una sola línea.",
+  "Your position goes out as {tid}.": "Tu ubicación se envía como {tid}.",
+  "Your position goes out with no tracker ID.": "Tu ubicación se envía sin ID de rastreador.",
   "Your position no longer goes to your own server.": "Tu ubicación ya no va a tu propio servidor.",
 };

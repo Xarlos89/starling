@@ -3,6 +3,13 @@
 All notable changes to Starling are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
+## [Unreleased]
+
+- **Tracker ID for your own server.** Settings, Sharing, Your own server takes
+  an optional tracker ID, sent as `tid` with each position. colota-forwarder
+  skips a target set to `FILTER_TID` unless the `tid` matches, so Starling's
+  points never reached Reitti or Home Assistant behind one (#10).
+
 ## [0.15.0]
 
 Starling runs on Android 9.

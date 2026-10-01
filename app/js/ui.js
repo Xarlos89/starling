@@ -1888,6 +1888,14 @@ export function openSettingsSheet({ api, values, demo, tor, keepSharing, backgro
     save.dataset.testid = "forward-save";
     const stop = btn("btn btn-secondary", "Stop sending");
     stop.dataset.testid = "forward-stop";
+    const tidInput = el("input", "text-input");
+    tidInput.type = "text";
+    tidInput.maxLength = 64;
+    tidInput.placeholder = t("Tracker ID, like phone1 (optional)");
+    tidInput.autocomplete = "off";
+    tidInput.dataset.testid = "forward-tid-input";
+    const tidSave = btn("btn btn-secondary", "Set tracker ID");
+    tidSave.dataset.testid = "forward-tid-save";
     const paint = () => {
       const st = forward.status();
       const kids = [];
@@ -1897,9 +1905,11 @@ export function openSettingsSheet({ api, values, demo, tor, keepSharing, backgro
         else if (st.last >= 200 && st.last < 300) kids.push(el("p", "field-note", "The last send worked."));
         else if (st.last === -1) kids.push(el("p", "field-note", "The last send failed: the server did not answer."));
         else if (st.last > 0) kids.push(el("p", "field-note", t("The last send failed: the server answered {code}.", { code: st.last })));
+        if (st.tid) kids.push(el("p", "field-note", t("Sent with the tracker ID {tid}.", { tid: st.tid })));
       }
       shown.replaceChildren(...kids);
       stop.hidden = !st?.host;
+      tidInput.hidden = tidSave.hidden = !st?.host || !forward.onTid;
     };
     save.addEventListener("click", async () => {
       if (await forward.onSave(input.value)) {
@@ -1910,16 +1920,29 @@ export function openSettingsSheet({ api, values, demo, tor, keepSharing, backgro
     stop.addEventListener("click", async () => {
       if (await forward.onStop()) paint();
     });
+    tidSave.addEventListener("click", async () => {
+      if (await forward.onTid?.(tidInput.value)) {
+        tidInput.value = "";
+        paint();
+      }
+    });
     paint();
     box.append(
       shown,
       input,
       save,
       stop,
+      tidInput,
+      tidSave,
       el(
         "p",
         "field-note",
         "Sends your own position in OwnTracks format to a server you run, like Reitti, Dawarich or Home Assistant, only while you share. It goes straight from this phone, never through the relay, and your circle's positions never go there. The server gets your precise position whatever the precision setting. With the app lock on, changing it needs your passcode.",
+      ),
+      el(
+        "p",
+        "field-note",
+        "A tracker ID goes out as tid with each position, so a forwarder or Home Assistant can tell this phone apart.",
       ),
     );
     gShare.append(box);

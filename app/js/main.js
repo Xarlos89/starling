@@ -99,7 +99,7 @@ import {
   zero,
 } from "./lock.js";
 import { createPlaceTracker, sanitizePlaces, newPlaceId, fenceSnap, DEFAULT_RADIUS } from "./places.js";
-import { debugHooks, apiUrl, isWrapped, isBundled, native, pageShown, shareUrlBase, normalizeRelay, normalizeForward, setApiBase, shareCapable } from "./env.js";
+import { debugHooks, apiUrl, isWrapped, isBundled, native, pageShown, shareUrlBase, normalizeRelay, normalizeForward, normalizeForwardTid, setApiBase, shareCapable } from "./env.js";
 import {
   isSealedRecordError,
   GEN_SLOT,
@@ -4577,7 +4577,12 @@ async function openSettings() {
       background,
       forward:
         typeof n?.setForward === "function" && typeof n?.forwardStatus === "function" && !state.demo
-          ? { status: () => forwardStatus(true), onSave: saveForward, onStop: () => saveForward("") }
+          ? {
+              status: () => forwardStatus(true),
+              onSave: saveForward,
+              onStop: () => saveForward(""),
+              onTid: typeof n?.setForwardTid === "function" ? saveForwardTid : null,
+            }
           : null,
       lock: {
         enabled: !!state.lock?.enabled,
@@ -5073,6 +5078,30 @@ async function saveForward(value) {
       : t("Your position no longer goes to your own server."),
   );
   render();
+  return true;
+}
+
+// colota-forwarder routes on tid and Home Assistant names the device from it.
+async function saveForwardTid(value) {
+  const n = native();
+  if (typeof n?.setForwardTid !== "function") return false;
+  const tid = normalizeForwardTid(value ?? "");
+  if (tid === null) {
+    ui.toast(t("Use up to 64 characters for the tracker ID, on one line."), "warn");
+    return false;
+  }
+  let saved = false;
+  try {
+    saved = !!n.setForwardTid(tid);
+  } catch {
+    saved = false;
+  }
+  forwardAt = 0;
+  if (!saved) {
+    ui.toast(t("That tracker ID did not work."), "warn");
+    return false;
+  }
+  ui.toast(tid ? t("Your position goes out as {tid}.", { tid }) : t("Your position goes out with no tracker ID."));
   return true;
 }
 
@@ -6033,6 +6062,7 @@ if (debugHooks()) window.__starlingInternals = {
   buildShareReport,
   healthCard,
   saveForward,
+  saveForwardTid,
   forwardStatus,
   passcodeMatches,
   resetForwardCache: () => {

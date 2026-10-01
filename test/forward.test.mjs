@@ -23,7 +23,7 @@ globalThis.indexedDB ??= {
 
 const { internals } = await loadApp(harness);
 const state = internals.state;
-const { normalizeForward } = await import("../app/js/env.js");
+const { normalizeForward, normalizeForwardTid } = await import("../app/js/env.js");
 const { makePasscodeRecord, randomBytes } = await import("../app/js/lock.js");
 const { buildDataExport } = await import("../app/js/export.js");
 
@@ -196,3 +196,49 @@ test("it only runs inside a share, and the lock screen never shows the host", ()
   const refresh = svc.slice(svc.indexOf("fun refreshNotification()"), svc.indexOf("fun refreshNotification()") + 400);
   assert.match(refresh, /if \(!running\) return/);
 });
+
+test("a tracker ID follows the forwarder's rule: up to 64 characters on one line, and \"\" clears it", () => {
+  assert.equal(normalizeForwardTid("phone1"), "phone1");
+  assert.equal(normalizeForwardTid("  alice  "), "alice");
+  assert.equal(normalizeForwardTid(""), "");
+  assert.equal(normalizeForwardTid("   "), "");
+  assert.equal(normalizeForwardTid("x".repeat(64)), "x".repeat(64));
+  for (const bad of ["x".repeat(65), "a\nb", "tab\there", "nul\u0000", "del\u007f", null, 7]) {
+    assert.equal(normalizeForwardTid(bad), null, JSON.stringify(bad));
+  }
+});
+
+test("the tracker ID needs no passcode, and a bad one never reaches the wrapper", async () => {
+  bridge();
+  const tids = [];
+  globalThis.StarlingNative.setForwardTid = (v) => {
+    tids.push(v);
+    return true;
+  };
+  state.lock = { enabled: true, pass: null, autolockMs: 60_000 };
+  try {
+    assert.equal(await internals.saveForwardTid("phone1"), true);
+    assert.equal(await internals.saveForwardTid("a\nb"), false);
+    assert.equal(await internals.saveForwardTid(""), true);
+    assert.deepEqual(tids, ["phone1", ""]);
+  } finally {
+    state.lock = null;
+  }
+});
+
+test("a wrapper without setForwardTid is left alone", async () => {
+  bridge();
+  assert.equal(await internals.saveForwardTid("phone1"), false);
+});
+
+test("the wrapper sends tid only when one is set, and reports it back", () => {
+  const src = kt("Forward.kt");
+  assert.match(src, /fun payload\(l: Location, batt: Int\?, tid: String\? = null\): String/);
+  assert.match(src, /if \(tid != null\) o\.put\("tid", tid\)/);
+  assert.match(src, /val body = payload\(location, battery\(ctx\), tid\(ctx\)\)/);
+  assert.match(src, /\.put\("tid", tid\(ctx\) \?: JSONObject\.NULL\)/);
+  assert.match(src, /if \(s\.length > MAX_TID \|\| s\.any \{ it\.code < 0x20 \|\| it\.code == 0x7f \}\) return null/);
+  assert.match(src, /MAX_TID = 64/);
+  assert.match(kt("StarlingBridge.kt"), /fun setForwardTid\(tid: String\?\): Boolean = Forward\.setTid\(app, tid\)/);
+});
+

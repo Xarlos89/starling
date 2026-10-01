@@ -18,6 +18,8 @@ import kotlin.math.roundToInt
 // notification and the line under their name both name the host.
 object Forward {
     private const val PREF_URL = "forward_url"
+    private const val PREF_TID = "forward_tid"
+    private const val MAX_TID = 64
     private const val MIN_GAP_MS = 15000L
     private const val TIMEOUT_MS = 10000
     private const val MAX_URL = 2048
@@ -51,6 +53,14 @@ object Forward {
         return s
     }
 
+    // "" clears it; null means it fails the rule colota-forwarder applies to tid.
+    fun normalizeTid(raw: String?): String? {
+        val s = raw?.trim().orEmpty()
+        if (s.isEmpty()) return ""
+        if (s.length > MAX_TID || s.any { it.code < 0x20 || it.code == 0x7f }) return null
+        return s
+    }
+
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE)
 
     private fun url(ctx: Context): String? = prefs(ctx).getString(PREF_URL, null)
@@ -59,6 +69,16 @@ object Forward {
 
     fun torOn(ctx: Context): Boolean = prefs(ctx).getBoolean(MainActivity.PREF_TOR, false)
 
+    fun tid(ctx: Context): String? = prefs(ctx).getString(PREF_TID, null)
+
+    fun setTid(ctx: Context, raw: String?): Boolean {
+        val next = normalizeTid(raw) ?: return false
+        val edit = prefs(ctx).edit()
+        if (next.isEmpty()) edit.remove(PREF_TID) else edit.putString(PREF_TID, next)
+        edit.apply()
+        return true
+    }
+
     // The host only, never the address: servers put their key in its query.
     fun status(ctx: Context): String = JSONObject()
         .put("host", host(ctx) ?: JSONObject.NULL)
@@ -66,6 +86,7 @@ object Forward {
         .put("sent", sent)
         .put("failed", failed)
         .put("last", lastStatus)
+        .put("tid", tid(ctx) ?: JSONObject.NULL)
         .toString()
 
     // "" stops it. An address that fails normalize changes nothing.
@@ -92,12 +113,12 @@ object Forward {
         val now = SystemClock.elapsedRealtime()
         if (lastAt != 0L && now - lastAt < MIN_GAP_MS) return
         lastAt = now
-        val body = payload(location, battery(ctx))
+        val body = payload(location, battery(ctx), tid(ctx))
         val app = ctx.applicationContext
         sender.execute { post(app, target, body) }
     }
 
-    fun payload(l: Location, batt: Int?): String {
+    fun payload(l: Location, batt: Int?, tid: String? = null): String {
         val o = JSONObject()
             .put("_type", "location")
             .put("lat", l.latitude)
@@ -108,6 +129,7 @@ object Forward {
         if (l.hasSpeed()) o.put("vel", (l.speed * 3.6f).roundToInt())
         if (l.hasBearing()) o.put("cog", l.bearing.roundToInt())
         if (batt != null) o.put("batt", batt)
+        if (tid != null) o.put("tid", tid)
         return o.toString()
     }
 

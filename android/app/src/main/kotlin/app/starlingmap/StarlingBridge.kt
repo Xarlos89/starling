@@ -170,6 +170,10 @@ class StarlingBridge(private val app: Context) {
         return ok
     }
 
+    // A label for routing, not a destination, so it needs no passcode.
+    @JavascriptInterface
+    fun setForwardTid(tid: String?): Boolean = Forward.setTid(app, tid)
+
     // --------------------------------------------------- keeping the page up
 
     // Not document.visibilityState, which reads visible during a nudge.

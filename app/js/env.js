@@ -122,6 +122,15 @@ export function normalizeForward(value) {
   return s;
 }
 
+// OwnTracks' tid as colota-forwarder checks it: up to 64 characters, no control characters. "" clears it.
+export function normalizeForwardTid(value) {
+  if (typeof value !== "string") return null;
+  const s = value.trim();
+  if (!s) return "";
+  if (s.length > 64 || /[\u0000-\u001f\u007f]/.test(s)) return null;
+  return s;
+}
+
 export function normalizeRelay(value) {
   if (typeof value !== "string") return null;
   const s = value.trim().replace(/\/+$/, "");
