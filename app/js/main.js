@@ -124,6 +124,8 @@ import {
   readStagedGen,
   switchActive,
   leaveActive,
+  packShare,
+  readCadence,
   finishPendingLeave,
   reconcileCircles,
   adoptPairedCircle,
@@ -132,13 +134,13 @@ import {
 } from "./circles.js";
 import * as ui from "./ui.js";
 import { createMapView } from "./map.js";
-import { createPoller, createRoster, createSender, statusOf, sortMembers, STALE_MS } from "./net.js";
+import { createPoller, createRoster, createSender, statusOf, sortMembers, staleAfter } from "./net.js";
 import { createOutbox } from "./outbox.js";
 import { buildDataExport } from "./export.js";
 import { startBeacon } from "./helpsession.js";
 import { startWatch, batteryLevel } from "./geo.js";
 import { haversineMeters, coarsePos, hueFromMemberId, fmtRelTime } from "./fmt.js";
-import { parseHealth, shareProblems, sentNote, sendErrorKind, shareReport } from "./sharehealth.js";
+import { parseHealth, shareProblems, sentNote, noteAfter, sendErrorKind, shareReport } from "./sharehealth.js";
 import { VERSION } from "./version.js";
 import { createDemo, demoPlaces, DEMO_CENTER } from "./demo.js";
 import { t, translateDom, setLocale, resolveLocale, LOCALE_CHOICES } from "./i18n.js";
@@ -203,6 +205,9 @@ const state = {
   // loadPlaces() under the same at-rest rule as the chain key.
   places: [],
   circleName: "My circle",
+  // The active circle's own precision and cadence; null means it has none and
+  // the device-wide setting (or the 15 second floor) stands in.
+  circleShare: { precision: null, cadence: null },
   me: null,
   geoDenied: false,
   geoFailed: false,
@@ -263,6 +268,14 @@ const channelId = () => state.gen?.channelId || null;
 const historyEpochs = (id = state.settings.history) =>
   HISTORY_CHOICES.find((c) => c.id === id)?.epochs ?? DEFAULT_HISTORY_EPOCHS;
 
+// What the active circle shares. settings.precision is the pre-circle
+// default and still stands in for a circle that never chose its own.
+const activePrecision = () => state.circleShare.precision || state.settings.precision;
+const activeCadence = () => readCadence(state.circleShare.cadence) || 15;
+// An SOS goes out on the floor whatever the circle asked for.
+const cadenceS = () => (state.sosActive ? 15 : activeCadence());
+const cadenceMs = () => cadenceS() * 1000;
+
 // The generation as it goes to disk: the oldest chain key still retained, plus
 // the numbers and the channel that key alone cannot name.
 function genRecord() {
@@ -295,6 +308,7 @@ async function activeRecord() {
     pinned: packPinned(state.pinned),
     profile: state.profile,
     lastTs: (await dbGet("lastSentTs")) || 0,
+    ...packShare(state.circleShare),
   };
 }
 
@@ -486,7 +500,7 @@ if (debugHooks()) window.__starlingState = () => {
       lon: Number.isFinite(r.lon) ? r.lon : null,
       ts: r.ts ?? null,
       type: r.type ?? null,
-      stale: now - r.ts > STALE_MS,
+      stale: now - r.ts > staleAfter(r),
     })),
     me:
       state.identity || state.demo
@@ -702,7 +716,13 @@ function renderYou() {
   // Once the circle's screens show this phone as quiet, this one stops saying live.
   const sent =
     state.sharing && hasFix && !state.demo && isWrapped()
-      ? sentNote({ lastOkAt: shareStats.lastOkAt, startedAt: shareStats.startedAt, now: Date.now(), staleMs: STALE_MS })
+      ? sentNote({
+          lastOkAt: shareStats.lastOkAt,
+          startedAt: shareStats.startedAt,
+          now: Date.now(),
+          staleMs: staleAfter({ cadence: cadenceS() }),
+          noteMs: noteAfter(cadenceS()),
+        })
       : null;
   if (!state.sharing) sub = t("Not sharing");
   else if (locationPaused)
@@ -715,7 +735,7 @@ function renderYou() {
         : t("SOS armed · Sharing live");
   else if (!hasFix) sub = state.geoFailed ? t("No location fix yet. Still trying...") : t("Locating...");
   else if (sent?.stale) sub = t("Not reaching your circle");
-  else sub = state.settings.precision === "coarse" ? t("Live · Neighborhood") : t("Live · Precise");
+  else sub = activePrecision() === "coarse" ? t("Live · Neighborhood") : t("Live · Precise");
   if (sent && !locationPaused) sub += ` · ${sent.text}`;
   const fwd = state.sharing && !state.demo ? forwardStatus() : null;
   if (fwd?.host && !fwd.tor && !locationPaused) sub += ` · ${t("also to {host}", { host: fwd.host })}`;
@@ -1323,6 +1343,7 @@ function renderMarkers(list, now) {
       status: statusOf(rec, now),
       ts: rec.ts,
       now,
+      staleMs: staleAfter(rec),
     });
   }
   if (state.me && Number.isFinite(state.me.lat)) {
@@ -1704,6 +1725,7 @@ async function leaveDestroyedCircle(circles) {
   // the circle's name with it, and memory has to say what the disk says.
   state.identity = null;
   state.circleName = "My circle";
+  state.circleShare = packShare(null);
   if (res.pending) {
     ui.toast(
       "That circle expired, and this device could not erase all of it. Open Starling again to finish clearing it.",
@@ -2895,6 +2917,7 @@ async function openVaultWith(K) {
       }
       adoptActive({ ...slots, identity: plainIdentity });
       state.circleName = (await dbGet("circleName")) || state.circleName;
+      state.circleShare = packShare(await dbGet("circleShare"));
       const arr = Array.isArray(plainCircles) ? plainCircles : [];
       state.circles = reconcileCircles({
         activeSecret: slots.ck,
@@ -2928,6 +2951,7 @@ async function openVaultWith(K) {
       // Plaintext forms first, the lock record last: a crash in between
       // lands back in this recovery, which now reads plaintext first.
       await dbSet("circleName", state.circleName);
+      await dbSet("circleShare", state.circleShare);
       await persistCircle();
       await persistCirclesAtRest();
       await dbDel("lock");
@@ -3003,6 +3027,7 @@ async function openVaultWith(K) {
       applyActive(paired);
       await dbSet("identity", paired.identity);
       await dbSet("circleName", paired.name);
+      await dbSet("circleShare", state.circleShare);
       if (paired.profile) await dbSet("profile", paired.profile);
       await writeGenAtRest();
     }
@@ -3367,6 +3392,7 @@ function promptCreate() {
           invite: state.invite,
           identity: state.identity,
           circleName: state.circleName,
+          circleShare: state.circleShare,
           circles: state.circles,
         };
         let opened = null;
@@ -3399,6 +3425,11 @@ function promptCreate() {
           state.circleName = p.circleName || (addMode ? "New circle" : prev.circleName);
           await dbSet("circleName", state.circleName);
           await persistCircle();
+          // A new circle starts on the defaults, not on the last circle's
+          // choices. The slot is cleared after the landing so a failure above
+          // leaves the circle that stays active with its own settings.
+          state.circleShare = packShare(null);
+          await dbDel("circleShare");
         } catch (e) {
           // Undo the in-memory swap AND put the disk array back in step with
           // it, so a later mutation cannot resurrect a stale entry the boot
@@ -3411,6 +3442,7 @@ function promptCreate() {
           state.invite = prev.invite;
           state.identity = prev.identity;
           state.circleName = prev.circleName;
+          state.circleShare = prev.circleShare;
           state.circles = prev.circles;
           await persistCirclesAtRest().catch(() => {});
           throw e;
@@ -4222,6 +4254,7 @@ async function completeJoin(j, welcome) {
     invite: state.invite,
     identity: state.identity,
     circleName: state.circleName,
+    circleShare: state.circleShare,
     circles: state.circles,
   };
   let opened = null;
@@ -4257,6 +4290,8 @@ async function completeJoin(j, welcome) {
     state.circleName = j.circleName || prev.circleName;
     await dbSet("circleName", state.circleName);
     await persistCircle();
+    state.circleShare = packShare(null);
+    await dbDel("circleShare");
   } catch (e) {
     opened?.ratchet.destroy();
     state.gen = prev.gen;
@@ -4265,6 +4300,7 @@ async function completeJoin(j, welcome) {
     state.invite = prev.invite;
     state.identity = prev.identity;
     state.circleName = prev.circleName;
+    state.circleShare = prev.circleShare;
     state.circles = prev.circles;
     await persistCirclesAtRest().catch(() => {});
     throw e;
@@ -4412,6 +4448,7 @@ function applyActive(c) {
   storedCkEpoch = c.ckEpoch;
   if (c.profile) state.profile = c.profile;
   state.circleName = c.name;
+  state.circleShare = packShare(c);
   state.me = null;
   lastSentPos = null;
   focusedId = null;
@@ -4442,6 +4479,7 @@ async function doSwitchCircle(i) {
     invite: state.invite,
     identity: state.identity,
     circleName: state.circleName,
+    circleShare: state.circleShare,
     circles: state.circles,
   };
   const outgoing = await activeRecord();
@@ -4465,6 +4503,7 @@ async function doSwitchCircle(i) {
     state.invite = prev.invite;
     state.identity = prev.identity;
     state.circleName = prev.circleName;
+    state.circleShare = prev.circleShare;
     state.circles = prev.circles;
     if (!state.locked) await enterCircle();
     throw e;
@@ -4537,6 +4576,7 @@ const leaveCircle = () =>
     state.keyChanges.clear();
     storedCkEpoch = -1;
     state.circleName = "My circle";
+    state.circleShare = packShare(null);
     state.circles = [];
     state.me = null;
     mapView?.clearAll();
@@ -4673,6 +4713,7 @@ async function openSettings() {
         circleName: state.circleName,
         profile: state.profile || { name: "", emoji: "\u{1F9ED}" },
         settings: state.settings,
+        share: { precision: activePrecision(), cadence: activeCadence() },
         // The relay choice is for the wrappers only: the web deployment's
         // CSP pins connect-src to its own origin, so a cross-origin relay
         // set there could never be reached. Web self-hosters serve app and
@@ -4772,6 +4813,13 @@ async function onSettingChange(key, value) {
     state.profile = { ...(state.profile || {}), [key]: value };
     await dbSet("profile", state.profile);
     if (state.sharing && !state.demo) sendLoc(true);
+  } else if (key === "precision" || key === "cadence") {
+    // Both resolved and written together: from here on this circle has its
+    // own pair and the device-wide default no longer speaks for it.
+    state.circleShare = packShare({ precision: activePrecision(), cadence: activeCadence(), [key]: value });
+    if (state.gen) await dbSet("circleShare", state.circleShare);
+    if (key === "cadence") applyCadence();
+    if (key === "precision" && state.sharing && !state.demo) sendLoc(true);
   } else {
     state.settings = { ...state.settings, [key]: value };
     await dbSet("settings", state.settings);
@@ -4799,7 +4847,6 @@ async function onSettingChange(key, value) {
       }
     }
     if (key === "wakeLock") ensureWakeLock();
-    if (key === "precision" && state.sharing && !state.demo) sendLoc(true);
     if (key === "trail" && !value && mapView && focusedId) mapView.clearTrail(focusedId);
   }
   render();
@@ -4836,8 +4883,23 @@ async function panic() {
 
 // --------------------------------------------------------------- sharing
 
-// The fixed cadence every share posts on, movement or no movement.
-const SHARE_INTERVAL_MS = 15000;
+// Every share posts on its circle's cadence, movement or no movement. The
+// page's timer and the wrapper's heartbeat both follow it, and both are
+// re-armed here when it changes under a running share.
+function applyCadence() {
+  pushCadence();
+  if (!state.sharing || state.demo) return;
+  clearInterval(shareTimer);
+  shareTimer = setInterval(() => sendLoc(true), cadenceMs());
+}
+
+function pushCadence() {
+  try {
+    native()?.setShareCadence?.(cadenceS());
+  } catch {
+    // an older wrapper without the method
+  }
+}
 
 // How far the clocks may disagree before the relay refuses a post outright.
 const CLOCK_TOLERANCE_MS = MAX_SKEW_EPOCHS * EPOCH_MS;
@@ -4914,6 +4976,9 @@ async function setSharing(on, { keepArmed = false } = {}) {
     locationPaused = null;
     healthDismissed.clear();
     healthAt = 0;
+    // Before the start, so the service's first heartbeat is already this
+    // circle's.
+    pushCadence();
     stopGeo = startWatch(onFix, onGeoError, { onSignal: onShareSignal, afterEach: pulseWrapper });
     // startWatch can report an error synchronously and turn sharing back off.
     if (state.sharing) {
@@ -4923,7 +4988,7 @@ async function setSharing(on, { keepArmed = false } = {}) {
       // sharing quietly off, which is what two people reported from four
       // phones. Only the fact and the window go down, never a position.
       await armShare();
-      shareTimer = setInterval(() => sendLoc(true), SHARE_INTERVAL_MS);
+      shareTimer = setInterval(() => sendLoc(true), cadenceMs());
       // Where the platform gives a web app no background execution at all,
       // sharing only runs while the screen is on and the app is in front.
       // Say so and hold the screen, rather than let someone walk away from a
@@ -5252,8 +5317,9 @@ function currentHealth(force = false) {
 
 function onShareSignal(sig) {
   if (sig.tick) {
-    // A minute with no fix: resend, as the page's own interval would.
-    if (state.sharing) sendLoc(true);
+    // A minute with no fix: resend, as the page's own interval would, and no
+    // sooner than that interval.
+    if (state.sharing && (!lastSentPos || Date.now() - lastSentPos.at >= cadenceMs())) sendLoc(true);
   } else if ("paused" in sig) {
     locationPaused = sig.paused || null;
     healthAt = 0;
@@ -5393,7 +5459,7 @@ function onFix(fix) {
     (!lastSentPos || haversineMeters(lastSentPos.lat, lastSentPos.lon, fix.lat, fix.lon) > 25)
   ) {
     sendLoc();
-  } else if (state.sharing && (!lastSentPos || Date.now() - lastSentPos.at >= SHARE_INTERVAL_MS)) {
+  } else if (state.sharing && (!lastSentPos || Date.now() - lastSentPos.at >= cadenceMs())) {
     // The interval timer is a page timer, and with the app closed it barely
     // runs. The service pushes a fix at least every interval even when the
     // phone is still, so this is what keeps a closed app's share from going
@@ -5558,7 +5624,10 @@ async function sendMsg(type) {
     name: state.profile?.name || "Someone",
     emoji: state.profile?.emoji || "\u{1F9ED}",
     hue: myHue(),
-    mode: state.settings.precision,
+    mode: activePrecision(),
+    // Seconds between posts while still, so a receiver that reads it can wait
+    // that long before calling this phone quiet. Older receivers ignore it.
+    cadence: cadenceS(),
     // The self-set caption ("omw", "here"). Rides inside the same padded
     // plaintext as everything else; empty string means no caption.
     st: (state.profile?.st || "").slice(0, 24),
@@ -5572,9 +5641,9 @@ async function sendMsg(type) {
     // coarse exemptions live inside fenceSnap, where the tests hold them.
     const fence = fenceSnap(state.places, lat, lon, {
       sos: state.sosActive || type === "sos",
-      precision: state.settings.precision,
+      precision: activePrecision(),
     });
-    if (state.settings.precision === "coarse") {
+    if (activePrecision() === "coarse") {
       ({ lat, lon } = coarsePos(lat, lon));
     } else if (fence) {
       lat = fence.lat;
@@ -5584,7 +5653,7 @@ async function sendMsg(type) {
     fields.lon = lon;
     // A real accuracy radius describes the real fix; sent next to a snapped
     // point it would say how far the center is from the truth.
-    if (!fence && state.settings.precision === "precise" && Number.isFinite(state.me.acc)) {
+    if (!fence && activePrecision() === "precise" && Number.isFinite(state.me.acc)) {
       fields.acc = state.me.acc;
     }
   }
@@ -5604,6 +5673,7 @@ async function doCheckin() {
     render();
     return;
   }
+  if (wasSos) applyCadence();
   try {
     await sendMsg("checkin");
     // Checking in safe cancels a queued SOS retry and is exactly the moment
@@ -5643,6 +5713,7 @@ async function fireSos() {
   }
   // An SOS while not sharing turns sharing on: the circle needs to see you.
   if (!state.sharing) setSharing(true);
+  else applyCadence();
   try {
     await sendMsg("sos");
     ui.toast("SOS sent to your circle. Tap the check mark to cancel.", "sos");
@@ -6170,6 +6241,12 @@ if (debugHooks()) window.__starlingInternals = {
   resumeShareIfArmed,
   sendLoc,
   onShareSignal,
+  activePrecision,
+  shareCadence: cadenceS,
+  applyCadence,
+  activeRecord,
+  fireSos,
+  doCheckin,
   sendStatus: () => ({ busy: sendBusy, again: sendAgain, whenReady: sendWhenReady, stats: { ...shareStats }, locationPaused }),
   buildShareReport,
   healthCard,
@@ -6341,12 +6418,13 @@ async function boot() {
   // what the app ships with, did not read it at all.
   let destroyed = false;
   try {
-    const [sec, id, profile, settings, circleName, lk, relay, circs, noInstall, mark] = await Promise.all([
+    const [sec, id, profile, settings, circleName, share, lk, relay, circs, noInstall, mark] = await Promise.all([
       dbGet("secret"),
       dbGet("identity"),
       dbGet("profile"),
       dbGet("settings"),
       dbGet("circleName"),
+      dbGet("circleShare"),
       dbGet("lock"),
       dbGet("relay"),
       dbGet("circles"),
@@ -6361,6 +6439,7 @@ async function boot() {
     if (profile) state.profile = profile;
     if (settings) state.settings = { ...state.settings, ...settings };
     if (circleName) state.circleName = circleName;
+    state.circleShare = packShare(share);
     if (typeof relay === "string") state.relay = relay;
     state.installDismissed = !!noInstall;
   } catch (e) {
@@ -6472,6 +6551,7 @@ async function boot() {
               applyActive(paired);
               await dbSet("identity", paired.identity);
               await dbSet("circleName", paired.name);
+              await dbSet("circleShare", state.circleShare);
               if (paired.profile) await dbSet("profile", paired.profile);
               await writeGenAtRest();
             }

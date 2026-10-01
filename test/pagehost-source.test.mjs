@@ -28,8 +28,14 @@ test("a dead renderer is handled instead of taking the app and the share down", 
   assert.match(src, /LocationService\.endShare\(app, "renderer"\)/);
 });
 
-test("a still phone still wakes the page: a listener with no distance filter", () => {
+test("a still phone still wakes the page: a listener with no distance filter, on the circle's cadence", () => {
   const src = kt("LocationService.kt");
-  assert.match(src, /requestLocationUpdates\(provider, HEARTBEAT_MS, 0f, heartbeat, mainLooper\)/);
+  // Twice: the first request, and the re-arm when the cadence changes. Neither
+  // may fall back to the constant, which is the floor and nothing else now.
+  assert.equal((src.match(/requestLocationUpdates\(provider, heartbeatMs, 0f, heartbeat, mainLooper\)/g) || []).length, 2);
+  assert.doesNotMatch(src, /requestLocationUpdates\(provider, HEARTBEAT_MS/);
   assert.match(src, /removeUpdates\(heartbeat\)/);
+  assert.match(src, /private const val HEARTBEAT_MS = 15000L/);
+  assert.match(src, /coerceIn\(HEARTBEAT_MS, HEARTBEAT_MAX_MS\)/, "the page's number is held to the floor and the ceiling");
+  assert.match(kt("StarlingBridge.kt"), /fun setShareCadence\(seconds: Int\) = LocationService\.setCadence\(seconds\)/);
 });

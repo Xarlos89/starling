@@ -215,8 +215,14 @@ Plaintext is JSON, padded to exactly `PAD_LEN` bytes with trailing spaces
 ```json
 { "v": 2, "ts": 1788282959714, "t": "loc", "lat": 43.3, "lon": -90.4,
   "acc": 12, "name": "Ana", "emoji": "🦊", "hue": 210, "bat": 0.62,
-  "mode": "precise" }
+  "mode": "precise", "cadence": 15 }
 ```
+
+`cadence` is how many seconds the sender waits between posts while standing
+still: 15, 60 or 300, chosen per circle. A receiver that reads it calls the
+member stale only after two of those have passed with nothing heard, and never
+sooner than three minutes. A receiver that does not read it keeps the three
+minutes. An SOS always says 15.
 
 On a circle channel `t` is one of `loc`, `checkin`, `sos`, `bye` or `rekey`. On
 an invite channel it is `join`, `ack`, `welcome` or `member`; a `member` record

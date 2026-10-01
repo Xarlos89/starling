@@ -149,6 +149,12 @@ class StarlingBridge(private val app: Context) {
         LocationService.stop(app)
     }
 
+    // Seconds between heartbeat fixes while the phone lies still: the active
+    // circle's cadence, sent before every start and on every change. 15 is
+    // the floor and 300 the ceiling, whatever the page asks.
+    @JavascriptInterface
+    fun setShareCadence(seconds: Int) = LocationService.setCadence(seconds)
+
     // The app lock ends a share, since a locked page holds no keys. It leaves the
     // trace Android's own ends leave, and a notice when nobody is looking.
     @JavascriptInterface

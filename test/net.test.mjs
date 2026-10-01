@@ -15,7 +15,9 @@ import {
   windowStart,
   statusOf,
   sortMembers,
+  staleAfter,
   STALE_MS,
+  CADENCE_MAX_S,
 } from "../app/js/net.js";
 import { openGeneration } from "../app/js/rekey.js";
 import { generateIdentity, newSeed, sealMessage, buildPost } from "../app/js/crypto.js";
@@ -667,4 +669,34 @@ test("a thaw with no window up neither polls at once nor delays the next poll", 
     delete globalThis.StarlingNative;
     restore();
   }
+});
+
+// --- a slower sender is not a dead one ----------------------------------------
+
+test("a sender on a slow cadence is stale after two missed posts, never sooner than three minutes", () => {
+  const now = 1_000_000;
+  assert.equal(staleAfter({ cadence: 15 }), STALE_MS, "today's cadence keeps today's cutoff");
+  assert.equal(staleAfter({ cadence: 60 }), STALE_MS, "two minutes is still inside the three");
+  assert.equal(staleAfter({ cadence: 300 }), 10 * 60 * 1000);
+  assert.equal(staleAfter({}), STALE_MS, "an older sender says nothing and gets the old rule");
+  assert.equal(staleAfter({ cadence: 3600 }), 2 * CADENCE_MAX_S * 1000, "a claimed hour is not believed past the ceiling");
+  const slow = { type: "loc", ts: now - 9 * 60 * 1000, cadence: 300 };
+  assert.equal(statusOf(slow, now), "live", "nine minutes on a five minute cadence is one missed post");
+  assert.equal(statusOf({ ...slow, ts: now - 10 * 60 * 1000 - 1 }, now), "stale");
+  assert.equal(statusOf({ type: "loc", ts: now - STALE_MS - 1, cadence: 15 }, now), "stale");
+});
+
+test("the cadence rides in the sealed message and lands on the record, bounded", async () => {
+  const c = await circle();
+  const alice = await generateIdentity();
+  const t0 = rAt(RE0) + 1000;
+  const roster = rosterFor(c);
+  await roster.ingest([await entryFor(c, alice, [{ e: RE0, msg: rLoc(t0, { cadence: 300 }) }])], t0);
+  assert.equal(roster.get(alice.memberId).cadence, 300);
+  await roster.ingest([await entryFor(c, alice, [{ e: RE0, msg: rLoc(t0 + 1000, { cadence: 3600 }) }])], t0 + 1000);
+  assert.equal(roster.get(alice.memberId).cadence, CADENCE_MAX_S, "an hour is capped");
+  await roster.ingest([await entryFor(c, alice, [{ e: RE0, msg: rLoc(t0 + 2000, { cadence: 5 }) }])], t0 + 2000);
+  assert.equal(roster.get(alice.memberId).cadence, CADENCE_MAX_S, "below the floor is ignored and the last good value stands");
+  await roster.ingest([await entryFor(c, alice, [{ e: RE0, msg: rLoc(t0 + 3000) }])], t0 + 3000);
+  assert.equal(roster.get(alice.memberId).cadence, CADENCE_MAX_S, "a post that says nothing leaves it alone");
 });

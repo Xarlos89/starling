@@ -52,7 +52,7 @@ const { epochAt, EPOCH_MS, MAX_CATCHUP_EPOCHS } = await import("../app/js/ratche
 const { createRoster } = await import("../app/js/net.js");
 const { welcomeContext, rosterConverged } = await import("../app/js/membership.js");
 const { newVaultKey, sealUnderVault, openUnderVault, makePasscodeRecord, openPasscodeRecord, PBKDF2_ITERS } = await import("../app/js/lock.js");
-const { GEN_SLOT, PINNED_SLOT, packGenMeta, writeRecordAtRest, writeCirclesAtRest } = await import("../app/js/circles.js");
+const { GEN_SLOT, PINNED_SLOT, packGenMeta, packShare, writeRecordAtRest, writeCirclesAtRest } = await import("../app/js/circles.js");
 const { dbGet, dbSet, dbDel, wipeAll } = await import("../app/js/store.js");
 const { MEMBER_CAP, INVITE_TTL_MS, b64uEncode, b64uDecode, memberIdFromKeys } = await import("../app/js/wire.js");
 
@@ -1984,4 +1984,35 @@ test("a passcode unlock re-wraps a pre-0.16 PBKDF2 record under Argon2id, once",
     state.vaultKey = null;
     await dbDel("lock").catch(() => {});
   }
+});
+
+// ------------------------------------------------------ per-circle sharing
+
+test("switching circles applies the circle's own precision and cadence, and a circle without them falls back", async () => {
+  await freshCircle();
+  await internals.enterCircle();
+  await settle();
+  state.settings = { ...state.settings, precision: "coarse" };
+  state.circleShare = { precision: "precise", cadence: 60 };
+  await dbSet("circleShare", state.circleShare);
+  const slow = { ...(await inactiveCircle("Slow circle")), precision: "coarse", cadence: 300 };
+  state.circles = [slow];
+
+  assert.equal(await internals.switchCircle(0), true);
+  assert.equal(state.circleName, "Slow circle");
+  assert.equal(internals.activePrecision(), "coarse");
+  assert.equal(internals.shareCadence(), 300);
+  assert.deepEqual(await dbGet("circleShare"), { precision: "coarse", cadence: 300 }, "the active slot holds the pair");
+  assert.deepEqual(packShare(state.circles[0]), { precision: "precise", cadence: 60 }, "the circle that left took its own with it");
+
+  // Back to a record that never chose: the device-wide setting stands in for
+  // the precision and the floor for the cadence, and nothing of the slow
+  // circle's bleeds across.
+  state.circles[0] = { ...state.circles[0], precision: null, cadence: null };
+  assert.equal(await internals.switchCircle(0), true);
+  assert.equal(internals.activePrecision(), "coarse", "the device-wide default, not the slow circle's choice");
+  assert.equal(internals.shareCadence(), 15);
+  assert.deepEqual(await dbGet("circleShare"), { precision: null, cadence: null });
+  state.settings = { ...state.settings, precision: "precise" };
+  assert.equal(internals.activePrecision(), "precise", "and it follows the default until this circle chooses");
 });

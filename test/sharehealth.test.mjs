@@ -3,7 +3,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { parseHealth, shareProblems, sentNote, sendErrorKind, shareReport, SENT_NOTE_MS } from "../app/js/sharehealth.js";
+import { parseHealth, shareProblems, sentNote, noteAfter, sendErrorKind, shareReport, SENT_NOTE_MS } from "../app/js/sharehealth.js";
 import { STALE_MS } from "../app/js/net.js";
 import { setLocale } from "../app/js/i18n.js";
 
@@ -94,6 +94,17 @@ test("the sent note stays quiet while posts are recent and turns honest when the
   const five = sentNote({ ...base, lastOkAt: now - 5 * 60_000 });
   assert.equal(five.stale, true, "past the circle's own cutoff this phone must stop saying live");
   assert.equal(five.text, "last sent 5 min ago");
+});
+
+test("the sent note waits out a slower cadence before it calls a post late", () => {
+  assert.equal(noteAfter(15), SENT_NOTE_MS, "the 15 second cadence keeps the old minute");
+  assert.equal(noteAfter(60), SENT_NOTE_MS + 45_000);
+  assert.equal(noteAfter(300), SENT_NOTE_MS + 285_000);
+  const now = 10_000_000;
+  const base = { startedAt: now - 3_600_000, now, staleMs: 10 * 60_000, noteMs: noteAfter(300) };
+  assert.equal(sentNote({ ...base, lastOkAt: now - 4 * 60_000 }), null, "four minutes on a five minute cadence is not news");
+  assert.deepEqual(sentNote({ ...base, lastOkAt: now - 6 * 60_000 }), { stale: false, text: "last sent 6 min ago" });
+  assert.equal(sentNote({ ...base, lastOkAt: now - 11 * 60_000 }).stale, true);
 });
 
 test("a share that never got a post out says so, after a grace minute", () => {

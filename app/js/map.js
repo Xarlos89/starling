@@ -191,7 +191,7 @@ export function createMapView(container, { onMarkerTap } = {}) {
     // discrete mk-stale class stays the truth the tests hold; this only
     // shades the road between.
     if (Number.isFinite(data.ts) && Number.isFinite(data.now)) {
-      const age = Math.min(1, Math.max(0, (data.now - data.ts) / (3 * 60 * 1000)));
+      const age = Math.min(1, Math.max(0, (data.now - data.ts) / (data.staleMs || 3 * 60 * 1000)));
       root.style.setProperty("--age", age.toFixed(2));
     }
     if (!reduced.matches) {

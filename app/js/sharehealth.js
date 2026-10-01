@@ -9,6 +9,12 @@ import { fmtRelTime } from "./fmt.js";
 // A minute, ahead of the viewers' three minute STALE_MS.
 export const SENT_NOTE_MS = 60 * 1000;
 
+// On a slower cadence the note waits the extra too: a post that is not due
+// yet is not late.
+export function noteAfter(cadenceS) {
+  return SENT_NOTE_MS + Math.max(0, cadenceS - 15) * 1000;
+}
+
 // Mode 3, foreground only, spares a foreground service.
 const SAVER_CUTS_LOCATION = new Set([1, 2, 4]);
 
@@ -35,9 +41,9 @@ export function shareProblems(h) {
 }
 
 // `stale`: the circle already shows this phone as quiet, so stop saying "Live".
-export function sentNote({ lastOkAt, startedAt, now, staleMs }) {
+export function sentNote({ lastOkAt, startedAt, now, staleMs, noteMs = SENT_NOTE_MS }) {
   const since = lastOkAt || startedAt;
-  if (!since || now - since < SENT_NOTE_MS) return null;
+  if (!since || now - since < noteMs) return null;
   const age = now - since;
   if (!lastOkAt) return { stale: age >= staleMs, text: t("nothing sent yet") };
   return { stale: age >= staleMs, text: t("last sent {ago} ago", { ago: fmtRelTime(age) }) };

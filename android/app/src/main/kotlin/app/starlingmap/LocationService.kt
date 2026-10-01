@@ -46,8 +46,15 @@ class LocationService : Service(), LocationListener {
         // page hears nothing and, with no window, its own send timer barely
         // runs: the share goes quiet and looks stopped to everyone watching.
         // This listener has no distance filter and wakes the page at least
-        // once per send interval.
+        // once per send interval. 15 s is the floor; a circle can ask for a
+        // slower heartbeat through setCadence, never a faster one.
         private const val HEARTBEAT_MS = 15000L
+        private const val HEARTBEAT_MAX_MS = 300000L
+
+        // The active circle's cadence. The page sends it before every start
+        // and whenever the setting changes, so nothing here persists it.
+        @Volatile
+        private var heartbeatMs = HEARTBEAT_MS
 
         // The heartbeat needs a fix to fire, and indoors on GPS alone there is none.
         private const val TICK_MS = 60000L
@@ -123,6 +130,13 @@ class LocationService : Service(), LocationListener {
         fun endShare(ctx: Context, route: String, notify: Boolean = true) {
             recordEnded(ctx, route, notify)
             stop(ctx)
+        }
+
+        fun setCadence(seconds: Int) {
+            val next = (seconds * 1000L).coerceIn(HEARTBEAT_MS, HEARTBEAT_MAX_MS)
+            if (next == heartbeatMs) return
+            heartbeatMs = next
+            instance?.let { s -> ContextCompat.getMainExecutor(s).execute { s.rearmHeartbeat() } }
         }
 
         // Not reference counted: each fix pushes the deadline out, one release ends it.
@@ -272,7 +286,7 @@ class LocationService : Service(), LocationListener {
         for (provider in wanted) {
             try {
                 lm.requestLocationUpdates(provider, MIN_TIME_MS, MIN_DIST_M, this, mainLooper)
-                lm.requestLocationUpdates(provider, HEARTBEAT_MS, 0f, heartbeat, mainLooper)
+                lm.requestLocationUpdates(provider, heartbeatMs, 0f, heartbeat, mainLooper)
                 got += provider
             } catch (e: SecurityException) {
                 // permission revoked between the page's start call and here
@@ -294,6 +308,21 @@ class LocationService : Service(), LocationListener {
         lm.removeUpdates(heartbeat)
         rewatches++
         if (request(lm, providers).isEmpty()) noProvider()
+    }
+
+    // Only the heartbeat moves with the cadence. The distance-filtered
+    // listener stays as it is, which is what lets a moving phone post sooner.
+    private fun rearmHeartbeat() {
+        if (!watching) return
+        val lm = getSystemService(LOCATION_SERVICE) as LocationManager
+        lm.removeUpdates(heartbeat)
+        for (provider in providers) {
+            try {
+                lm.requestLocationUpdates(provider, heartbeatMs, 0f, heartbeat, mainLooper)
+            } catch (e: SecurityException) {
+                // permission revoked mid-share; the next fix path reports it
+            }
+        }
     }
 
     override fun onLocationChanged(location: Location) {

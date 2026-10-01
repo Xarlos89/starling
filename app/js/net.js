@@ -42,9 +42,21 @@ export function pollDelay(hidden, wrapped) {
 
 export const STALE_MS = 3 * 60 * 1000;
 
+// The slowest cadence a sender gets believed on. A member who claimed an hour
+// would stay "live" on everyone's map for two.
+export const CADENCE_MAX_S = 300;
+
+// Stale after three minutes, or after two posts on a slower cadence have
+// failed to arrive, whichever is longer. A sender on the five minute cadence
+// is a dot that moves twice in ten minutes, not a phone that died.
+export function staleAfter(rec) {
+  const every = Number.isFinite(rec?.cadence) ? Math.min(CADENCE_MAX_S, rec.cadence) * 1000 : 0;
+  return Math.max(STALE_MS, 2 * every);
+}
+
 export function statusOf(rec, now) {
   if (rec.type === "bye") return "stopped";
-  if (now - rec.ts > STALE_MS) return "stale";
+  if (now - rec.ts > staleAfter(rec)) return "stale";
   if (rec.type === "sos") return "sos";
   if (rec.type === "checkin") return "checkin";
   return "live";
@@ -226,6 +238,7 @@ export function createRoster({ channelId, ratchet, selfId, pinned, onControl, on
         if (Number.isFinite(obj.hue)) rec.hue = ((obj.hue % 360) + 360) % 360;
         if (typeof obj.bat === "number") rec.bat = obj.bat;
         if (obj.mode === "coarse" || obj.mode === "precise") rec.mode = obj.mode;
+        if (Number.isFinite(obj.cadence) && obj.cadence >= 15) rec.cadence = Math.min(CADENCE_MAX_S, obj.cadence);
         // A short self-set caption ("omw", "at the gate"). Empty string is a
         // deliberate clear, so string-typed means assign, not merge.
         if (typeof obj.st === "string") rec.st = obj.st.slice(0, 24);

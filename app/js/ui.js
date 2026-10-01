@@ -1674,7 +1674,11 @@ export function openSettingsSheet({ api, values, demo, tor, keepSharing, backgro
   cn.type = "text";
   cn.maxLength = 24;
   cn.value = values.circleName;
-  cn.addEventListener("change", () => onChange("circleName", cn.value.trim().slice(0, 24) || "My circle"));
+  cn.addEventListener("change", () => {
+    const name = cn.value.trim().slice(0, 24) || "My circle";
+    onChange("circleName", name);
+    paintShareFor(name);
+  });
   cnField.append(cn);
   const inviteBtn = btn("btn btn-secondary", "Invite people");
   inviteBtn.dataset.testid = "invite-open";
@@ -1796,9 +1800,16 @@ export function openSettingsSheet({ api, values, demo, tor, keepSharing, backgro
   grid.addEventListener("click", () => onChange("emoji", grid.value()));
   gYou.append(nameField, grid);
 
-  // Sharing
+  // Sharing. Precision and cadence are the circle's, so the group says which.
   const gShare = group("Sharing");
+  const shareFor = el("p", "field-note");
+  shareFor.dataset.testid = "share-for-circle";
+  const paintShareFor = (name) => {
+    shareFor.textContent = t("For {name}. Each circle keeps its own precision and timing.", { name: demo ? t("Demo circle") : name });
+  };
+  paintShareFor(values.circleName);
   gShare.append(
+    shareFor,
     segControl({
       label: "Precision",
       note: "Neighborhood rounds your position to about 1 km on your device before it is encrypted",
@@ -1806,8 +1817,19 @@ export function openSettingsSheet({ api, values, demo, tor, keepSharing, backgro
         { value: "precise", label: "Precise" },
         { value: "coarse", label: "Neighborhood" },
       ],
-      value: values.settings.precision,
+      value: values.share.precision,
       onChange: (v) => onChange("precision", v),
+    }),
+    segControl({
+      label: "Send every",
+      note: "How often your circle hears from you while you stay put. Moving sends sooner unless Steady sending is on. Slower is easier on the battery. An SOS always goes every 15 seconds.",
+      options: [
+        { value: 15, label: "15 s" },
+        { value: 60, label: "1 min" },
+        { value: 300, label: "5 min" },
+      ],
+      value: values.share.cadence,
+      onChange: (v) => onChange("cadence", v),
     }),
     switchRow({
       label: "Trail history",

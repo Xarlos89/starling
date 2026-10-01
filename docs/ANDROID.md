@@ -261,8 +261,9 @@ Android holds a wake lock while it hands a fix over and lets go when the
 listener returns, which is before the page has started on it. The service now
 holds one partial wake lock during a share, with a 30 second ceiling per fix,
 and the page releases it as soon as its post settles. A phone lying still
-wakes about every 15 seconds for as long as it takes to seal and post, usually
-well under a second.
+wakes once per cadence, every 15 seconds unless the circle is set to a minute
+or five, for as long as it takes to seal and post, usually well under a
+second.
 
 ### Around the same failure
 

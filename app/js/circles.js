@@ -1,9 +1,10 @@
 // Multiple circles, one active. The active circle keeps living in the
-// original kv slots (secret, identity, profile, circleName, lastSentTs), so a
-// device that only ever holds one circle never changes shape. The inactive
-// circles wait in a single array: plaintext under the `circles` key with the
-// app lock off, or split with the lock on into `vaultCircles` (names, chain
-// keys, profiles, rosters, timestamps, sealed under the vault key) plus
+// original kv slots (secret, identity, profile, circleName, circleShare,
+// lastSentTs), so a device that only ever holds one circle never changes
+// shape. The inactive circles wait in a single array: plaintext under the
+// `circles` key with the app lock off, or split with the lock on into
+// `vaultCircles` (names, chain keys, profiles, rosters, timestamps, sharing
+// settings, sealed under the vault key) plus
 // `circleIdentities` (the keypairs, which are non-extractable CryptoKeys and
 // can only be structured-cloned, never serialized into a sealed blob; they
 // reveal the same class of thing the active identity already does today: key
@@ -128,6 +129,25 @@ export function readPinned(raw) {
 
 export const pinnedMap = (list) => new Map(readPinned(list).map((r) => [r.memberId, r]));
 
+// --- per-circle sharing -----------------------------------------------------
+//
+// Precision and cadence belong to the circle, not the device: the family
+// circle can have a precise point every 15 seconds while the work circle gets
+// the neighborhood every five minutes. Both are optional in a record. An
+// absent one means "whatever the device-wide setting was", so a record written
+// before this existed reads back as exactly the behavior it had.
+export const CADENCES = [15, 60, 300];
+
+export const readPrecision = (v) => (v === "coarse" || v === "precise" ? v : null);
+
+// Anything that is not one of the choices on offer reads as absent, a 5 or a
+// string included, and absent resolves to the 15 second floor.
+export const readCadence = (v) => (CADENCES.includes(v) ? v : null);
+
+export function packShare(c) {
+  return { precision: readPrecision(c?.precision), cadence: readCadence(c?.cadence) };
+}
+
 // --- the outstanding invitation ---------------------------------------------
 //
 // One at a time, and a credential while it lives: whoever holds these 32 bytes
@@ -225,6 +245,7 @@ export function packCircles(circles) {
     pinned: packPinned(c.pinned),
     profile: c.profile || null,
     lastTs: c.lastTs || 0,
+    ...packShare(c),
   }));
   return te.encode(JSON.stringify(metas));
 }
@@ -270,6 +291,7 @@ export function unpackCircles(bytes, identities) {
       pinned: readPinned(m.pinned),
       profile: m.profile || null,
       lastTs: Number.isFinite(m.lastTs) ? m.lastTs : 0,
+      ...packShare(m),
     });
   }
   return out;
@@ -712,6 +734,7 @@ export const LEAVE_PURGE_KEYS = [
   ...[STAGED_SLOT, INVITE_SLOT, GEN_SLOT, PINNED_SLOT].flatMap((slot) => [slot.plain, slot.sealed]),
   "identity",
   "circleName",
+  "circleShare",
   "lastSentTs",
 ];
 
@@ -792,6 +815,7 @@ async function writeActive(kv, lock, c) {
 async function writeActiveSlots(kv, lock, c) {
   if (c.profile) await kv.set("profile", c.profile);
   await kv.set("circleName", c.name);
+  await kv.set("circleShare", packShare(c));
   await kv.set("lastSentTs", c.lastTs || 0);
   // An invitation belongs to the circle that issued it, and no invitation
   // travels with a switch. Burning it first means a torn switch can only cost

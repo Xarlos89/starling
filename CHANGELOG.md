@@ -19,6 +19,21 @@ All notable changes to Starling are recorded here. Versions follow
   time you type the passcode the key is re-wrapped under Argon2id. A duress code set earlier
   keeps its old verifier until you set it again. docs/ARGON2.md has the
   rebuild and check steps.
+- **Precision and cadence per circle.** Settings, Sharing now belongs to the
+  circle you are in, and says which one. Each circle keeps its own precision
+  (precise or neighborhood) and how often your position goes out while you
+  stay put: every 15 seconds, every minute or every 5 minutes. Switch circles
+  and both switch with you. On Android the service wakes the phone on the
+  circle's cadence instead of every 15 seconds. Moving still sends sooner
+  unless Steady sending is on. An SOS goes out every 15 seconds no matter what
+  the circle asked for. Circles from before this keep working as they did: the
+  old device-wide precision stands in until a circle picks its own.
+- **A slow sender is not a dead one.** Each post now says how often its sender
+  posts. A phone on this version waits for two missed posts before it shows
+  "Last seen", and never less than the usual three minutes. The other way to
+  do this was to stretch the three minutes for everyone, which would have
+  hidden a phone that really had died. Phones on older versions do not read
+  the new field, so they show a 5 minute sender as "Last seen" between posts.
 
 ## [0.15.2]
 

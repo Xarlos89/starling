@@ -41,6 +41,9 @@ import {
   isSealedRecordError,
   SEALED_KEYS,
   usableVaultKey,
+  packShare,
+  readCadence,
+  readPrecision,
 } from "../app/js/circles.js";
 import { newVaultKey, zero } from "../app/js/lock.js";
 import { b64uEncode } from "../app/js/wire.js";
@@ -1298,7 +1301,7 @@ test("the purge list covers both spellings of every slot, and stops at the inact
     assert.ok(LEAVE_PURGE_KEYS.includes(slot.plain), `${slot.plain} must be purged`);
     assert.ok(LEAVE_PURGE_KEYS.includes(slot.sealed), `${slot.sealed} must be purged`);
   }
-  for (const k of ["secret", "vaultSecret", "identity", "circleName", "lastSentTs"]) {
+  for (const k of ["secret", "vaultSecret", "identity", "circleName", "circleShare", "lastSentTs"]) {
     assert.ok(LEAVE_PURGE_KEYS.includes(k), `${k} must be purged`);
   }
   // Nothing outside the active slots. The array holds other circles and may be
@@ -1736,4 +1739,53 @@ test("main.js acts on a leave that could not finish its deletes", () => {
     !/ui\.toast\("You left the circle\."\)/.test(body),
     "the unconditional 'it is gone' toast cannot survive a purge that did not finish",
   );
+});
+
+// --- per-circle sharing ------------------------------------------------------
+
+test("a circle's precision and cadence ride in the record, sealed and plain, and an old record reads as defaults", async () => {
+  const a = { ...circle("work"), precision: "coarse", cadence: 300 };
+  const b = circle("family");
+  const back = unpackCircles(packCircles([a, b]), [a.identity, b.identity]);
+  assert.equal(back[0].precision, "coarse");
+  assert.equal(back[0].cadence, 300);
+  assert.equal(back[1].precision, null, "a record without a precision says so rather than inventing one");
+  assert.equal(back[1].cadence, null);
+
+  // Sealed under the lock, plaintext without, same answer both ways.
+  const K = newVaultKey();
+  for (const lock of [null, { enabled: true, vaultKey: K }]) {
+    const { kv } = fakeKv();
+    await writeCirclesAtRest(kv, lock, [a, b]);
+    const read = await readCirclesAtRest(kv, lock);
+    assert.deepEqual(packShare(read[0]), { precision: "coarse", cadence: 300 }, lock ? "sealed" : "plain");
+    assert.deepEqual(packShare(read[1]), { precision: null, cadence: null }, lock ? "sealed" : "plain");
+  }
+});
+
+test("a cadence that is not on offer reads as absent, so the 15 second floor applies", () => {
+  for (const v of [5, 14, 30, 120, 600, "300", null, undefined, NaN]) {
+    assert.equal(readCadence(v), null, `cadence ${String(v)}`);
+  }
+  for (const v of [15, 60, 300]) assert.equal(readCadence(v), v);
+  assert.equal(readPrecision("nearby"), null);
+  assert.deepEqual(packShare({ precision: "precise", cadence: 5 }), { precision: "precise", cadence: null });
+  const odd = { ...circle("odd"), precision: "fine", cadence: 7 };
+  const back = unpackCircles(packCircles([odd]), [odd.identity]);
+  assert.deepEqual(packShare(back[0]), { precision: null, cadence: null });
+});
+
+test("a switch lands the incoming circle's sharing settings in the active slot, and the last leave purges them", async () => {
+  const { store, kv } = fakeKv();
+  const out = circle("family");
+  const incoming = { ...circle("work"), precision: "coarse", cadence: 60 };
+  await switchActive(kv, null, { outgoing: out, circles: [incoming], toIndex: 0 });
+  assert.deepEqual(store.get("circleShare"), { precision: "coarse", cadence: 60 });
+  // Back the other way: a circle with nothing of its own clears the slot's
+  // values rather than inheriting the last circle's.
+  const res = await switchActive(kv, null, { outgoing: incoming, circles: [out], toIndex: 0 });
+  assert.deepEqual(store.get("circleShare"), { precision: null, cadence: null });
+  assert.deepEqual(packShare(res.circles[0]), { precision: "coarse", cadence: 60 }, "the array keeps the outgoing circle's pair");
+  await leaveActive(kv, null, { circles: [], toIndex: 0 });
+  assert.ok(!store.has("circleShare"), "gone with the rest of the active slots");
 });
