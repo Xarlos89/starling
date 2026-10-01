@@ -3,7 +3,9 @@
 All notable changes to Starling are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
-## [Unreleased]
+## [0.15.2]
+
+Invites work on your own relay.
 
 - **Invites on your own relay.** An invite link made on a phone that uses a
   custom relay now carries the relay's address. Before, the phone that opened
