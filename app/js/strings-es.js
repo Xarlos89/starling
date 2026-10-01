@@ -554,4 +554,9 @@ export const es = {
   "To join it, put {relay} in Settings, Advanced, Relay, restart Starling and open the link again. Your other circles stop updating while it is set.": "Para unirte, pon {relay} en Ajustes, Avanzado, Relay, reinicia Starling y vuelve a abrir el enlace. Tus otros círculos dejan de actualizarse mientras esté puesto.",
   "Your circles use the default relay, and Starling talks to one relay at a time.": "Tus círculos usan el relay predeterminado, y Starling usa un solo relay a la vez.",
   "Your circles use {host}, and Starling talks to one relay at a time.": "Tus círculos usan {host}, y Starling usa un solo relay a la vez.",
+  "Use your own relay": "Usar tu propio relay",
+  "Cancel your join request first.": "Primero cancela tu solicitud para unirte.",
+  "Starling will use {host}.": "Starling usará {host}.",
+  "Starling will use the default relay.": "Starling usará el relay predeterminado.",
+  "Only if you run a relay yourself. Everyone in your circle has to use the same one, and the invite links you send carry it.": "Solo si tienes tu propio relay. Todos en tu círculo tienen que usar el mismo, y los enlaces de invitación que envíes lo llevan.",
 };

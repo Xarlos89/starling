@@ -179,7 +179,9 @@ is what makes the last hop trustworthy under `TRUST_PROXY=1`.
 The Android and iOS apps always have the Settings option for a custom relay:
 enter your relay's `https://` origin (for example
 `https://relay.example.org`), no trailing slash needed, and restart Starling.
-Everyone in the circle has to use the same relay.
+Everyone in the circle has to use the same relay. On a phone with no circle
+yet, "Use your own relay" on the first screen sets it with no restart, so the
+phone that creates the circle can start on your relay.
 
 Invite links made on a phone that uses your relay carry its address. A phone
 that opens one with no circle yet shows the address in the join sheet and

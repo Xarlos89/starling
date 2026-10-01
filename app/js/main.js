@@ -3452,10 +3452,55 @@ function promptJoin(invite) {
 
 // Only reached with no circle and no request in flight, so nothing is polling
 // or sending yet and the base can change now instead of at the next start.
+// "" goes back to the default relay.
 async function adoptRelay(relay) {
   state.relay = relay;
-  await dbSet("relay", relay);
-  setApiBase(relay);
+  if (relay) await dbSet("relay", relay);
+  else await dbDel("relay");
+  setApiBase(relay || null);
+}
+
+// The start screen's relay field, for the phone that creates a circle on its
+// own relay. Returns false when the value is refused, so the sheet stays open.
+async function saveStartRelay(value) {
+  if (state.joining) {
+    ui.toast("Cancel your join request first.", "warn");
+    return false;
+  }
+  const text = String(value ?? "").trim();
+  const norm = normalizeRelay(text);
+  if (text && !norm) {
+    ui.toast("A relay must be an https URL, like https://relay.example.org", "warn");
+    return false;
+  }
+  await adoptRelay(norm || "");
+  ui.toast(norm ? t("Starling will use {host}.", { host: new URL(norm).host }) : "Starling will use the default relay.");
+  return true;
+}
+
+function promptStartRelay() {
+  const ov = ui.openOverlay({ title: "Use your own relay", testid: "start-relay-sheet" });
+  const field = ui.el("label", "field");
+  field.append(ui.el("span", "field-label", "Relay"));
+  const input = ui.el("input", "text-input");
+  input.type = "url";
+  input.placeholder = "https://relay.example.org";
+  input.autocomplete = "off";
+  input.value = state.relay || "";
+  input.dataset.testid = "start-relay-input";
+  field.append(input);
+  const save = ui.el("button", "btn btn-primary", "Save");
+  save.type = "button";
+  save.dataset.testid = "start-relay-save";
+  save.addEventListener("click", async () => {
+    if (await saveStartRelay(input.value)) ov.close();
+  });
+  ov.body.append(
+    ui.el("p", "ov-note", "Only if you run a relay yourself. Everyone in your circle has to use the same one, and the invite links you send carry it."),
+    field,
+    save,
+  );
+  input.focus();
 }
 
 function showRelayMismatch(relay) {
@@ -6074,6 +6119,7 @@ if (debugHooks()) window.__starlingInternals = {
   promptJoin,
   inviteLinkFor,
   adoptRelay,
+  saveStartRelay,
   boot,
   DESTROYED_KEY,
   writePlacesAtRest,
@@ -6221,6 +6267,7 @@ async function boot() {
     for (const n of document.querySelectorAll(".web-only")) n.remove();
     const about = document.getElementById("ob-about");
     if (about) about.hidden = false;
+    byTestid("onboarding-relay")?.addEventListener("click", promptStartRelay);
   }
 
   byTestid("onboarding-demo").addEventListener("click", startDemo);

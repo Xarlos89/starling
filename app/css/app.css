@@ -2596,7 +2596,8 @@ div.danger-zone {
    website. Revealed by boot in the wrapper; the web never shows it. */
 .ob-about {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
   margin-top: 4px;
 }
 

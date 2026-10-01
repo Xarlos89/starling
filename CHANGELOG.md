@@ -13,6 +13,9 @@ All notable changes to Starling are recorded here. Versions follow
   phone already in circles on another relay says which relay the invitation
   needs instead. Links made on the default relay are unchanged, so older
   versions still open them.
+- **Relay on the first screen.** "Use your own relay" on the first screen sets
+  a custom relay before you create a circle, with no restart, so the phone
+  that starts the circle can begin on your relay.
 
 ## [0.15.1]
 

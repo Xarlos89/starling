@@ -1929,3 +1929,27 @@ test("a fresh device switches relays before its join request goes out", async ()
   assert.ok(adopt > 0 && send > adopt, "adoptRelay runs before joinWithInvite");
 });
 
+test("the start screen sets a relay before the first circle, and refuses junk or a pending request", async () => {
+  const saved = { relay: state.relay, joining: state.joining };
+  try {
+    state.joining = null;
+    assert.equal(await internals.saveStartRelay("https://relay.example.org/"), true);
+    assert.equal(state.relay, "https://relay.example.org");
+    assert.equal(envMod.getApiBase(), "https://relay.example.org");
+    assert.equal(await internals.saveStartRelay("http://nope"), false, "not https");
+    assert.equal(state.relay, "https://relay.example.org", "a refused value changes nothing");
+    state.joining = { secret: new Uint8Array(32) };
+    assert.equal(await internals.saveStartRelay(""), false, "a request in flight keeps its relay");
+    assert.equal(envMod.getApiBase(), "https://relay.example.org");
+    state.joining = null;
+    assert.equal(await internals.saveStartRelay(""), true);
+    assert.equal(state.relay, "");
+    assert.equal(await dbGet("relay"), undefined);
+    assert.equal(envMod.getApiBase(), "", "back to the default");
+  } finally {
+    Object.assign(state, saved);
+    await dbDel("relay");
+    envMod.setApiBase(null);
+  }
+});
+
