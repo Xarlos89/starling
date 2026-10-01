@@ -21,4 +21,9 @@
     <string name="panic_allow">Allow panic wipe</string>
     <string name="panic_deny">Don\'t allow</string>
     <string name="panic_unknown_app">this app</string>
+    <string name="webview_title">Update Android System WebView</string>
+    <string name="webview_too_old">Starling runs inside Android System WebView and needs version %1$d or newer. This phone has version %2$d.\n\nUpdate Android System WebView (on some phones it comes with Chrome) from your app store, or install your phone\'s latest system update, then open Starling again.</string>
+    <string name="webview_missing">Starling runs inside Android System WebView, and this phone doesn\'t have a working one. It may be turned off in your phone\'s app settings, or it may need an update from your app store.</string>
+    <string name="android9_title">This phone runs Android 9</string>
+    <string name="android9_body">Google\'s last security fixes for Android 9 came out in January 2022. Starling works here, but holes in Android found since then stay open on this phone, and a harmful app or website could use one to follow your location.\n\nAndroid 9 also can\'t limit location to \"only while using the app\", so the permission covers all the time. Starling only reads your location while you\'re using it or sharing.\n\nIf you can, use a newer phone.</string>
 </resources>

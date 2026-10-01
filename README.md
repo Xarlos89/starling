@@ -286,8 +286,19 @@ A signed APK ships with every [release](https://github.com/munzzyy/starling/rele
 with a stable `starling.apk` name that [Tern](https://github.com/munzzyy/tern) can track. The app has no
 Google services dependency at all (plain `LocationManager`, no Firebase, no
 push), so it runs as-is on GrapheneOS and other de-googled Android builds;
-release testing happens on the no-GMS AOSP emulator image for exactly that
+testing happens on the no-GMS AOSP emulator image for exactly that
 reason.
+
+Android 9 works too, with two catches. Google's last security fixes for
+Android 9 came out in January 2022, and Android 9 has no "only while using
+the app" choice for location, so the location permission there covers all
+the time (Starling still only reads your location while you're using it or
+sharing). Starling says both once, the first time it opens there. It also
+needs Android System WebView 137 or newer, because older versions can't check
+the Ed25519 signatures newer phones make, and people in your circle would
+quietly stop showing up. A phone that gets updates through Google Play should
+already have it; with an older WebView, Starling explains how to update it
+instead of opening.
 
 ## Privacy policy
 

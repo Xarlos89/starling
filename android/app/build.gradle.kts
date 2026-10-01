@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId = "app.starlingmap"
-        minSdk = 29
+        minSdk = 28
         targetSdk = 36
         versionCode = 1400
         versionName = "0.14.0"

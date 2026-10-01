@@ -168,9 +168,8 @@ first-class target rather than an afterthought:
 - No Google Play Services, Firebase, or push dependency. Location comes from
   the plain `LocationManager`, so it works with no sandboxed Play services
   installed.
-- The WebView requirement is satisfied by GrapheneOS's own Vanadium, which
-  tracks current Chromium; there is nothing version-fragile in the app's use
-  of WebCrypto, IndexedDB, or ES modules.
+- The WebView requirement (137 or newer, see below) is met by GrapheneOS's
+  own Vanadium, which tracks current Chromium.
 - Install paths that do not touch Google: F-Droid
   (<https://f-droid.org/packages/app.starlingmap/>, the same developer-signed
   APK after its reproducible-build check), or add it to Tern
@@ -179,9 +178,36 @@ first-class target rather than an afterthought:
 - GrapheneOS's per-app Network and Sensors toggles degrade the app the way
   you would hope: no network means the poller backs off and the Off-grid
   basemap still renders; denying location just means nothing to share.
-- Release verification happens on the no-GMS AOSP emulator image
+- Verification happens on the no-GMS AOSP emulator image
   (`system-images;android-36;default`), which is the closest stand-in for a
-  de-googled device that automated testing can get.
+  de-googled device that automated testing can get. It runs debug builds:
+  that image's WebView is 133, older than a release build accepts.
+
+## Android 9 and old WebViews
+
+The app installs on Android 9 (minSdk 28). Two calls differ there:
+`LocationService` starts through `ServiceCompat.startForeground`, because
+Android 9 has no foreground service types, and the health report reads the
+location op with `checkOpNoThrow`. Android 9 also has no "only while using
+the app" location grant, so the permission covers all the time. The first
+launch on Android 9 shows a one-time note saying that, and that Android 9
+has had no security fixes since January 2022.
+
+`SystemCheck` won't load the page on an Android System WebView older than
+137, the first version with WebCrypto Ed25519. On anything older, every
+member whose identity is Ed25519 fails signature checks and silently drops
+off the map, so the app shows a native screen with the version it needs and
+the one the phone has instead. Debug builds only require 80, the page's
+syntax floor, so the AOSP emulator images (WebView 133) still run the e2e
+checks; identities made there fall back to P-256. `test/webview-floor.test.mjs`
+fails if the page starts using anything newer than the floor.
+
+Tested on the `system-images;android-28;default` image with its WebView
+updated to 133 from the Android 16 image (same AOSP signing key, so
+`adb install -r` takes it): a share with the screen off and Chromium's
+freeze delay cut to 60 seconds froze twice and was woken twice; over 160
+seconds the relay accepted 40 posts, with no errors and no gap longer than
+five seconds. The image's own WebView is 66, which gets the update screen.
 
 ## Sharing with the screen off
 

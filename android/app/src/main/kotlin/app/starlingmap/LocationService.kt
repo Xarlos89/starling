@@ -19,6 +19,7 @@ import android.os.Bundle
 import android.os.IBinder
 import android.os.PowerManager
 import android.os.SystemClock
+import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import org.json.JSONObject
 
@@ -225,7 +226,7 @@ class LocationService : Service(), LocationListener {
         // the activity's check and this callback; that stack is the framework's,
         // not the activity's try/catch, so it must be handled here.
         try {
-            startForeground(NOTIF_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+            ServiceCompat.startForeground(this, NOTIF_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
         } catch (e: Exception) {
             stopAsked = true
             sink?.invoke(JSONObject().put("error", "location service refused: ${e.message}").put("code", 2).toString())

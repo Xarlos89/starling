@@ -3,6 +3,18 @@
 All notable changes to Starling are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
+## [Unreleased]
+
+- **Android 9.** Starling installs on Android 9 now. The first time it opens
+  there, it says once that Android 9 has had no security fixes since January
+  2022, and that the location permission covers all the time, since Android 9
+  has no "only while using the app" choice. Sharing with the screen off works
+  the same as on newer phones.
+- **Old WebViews.** With an Android System WebView older than 137, the app
+  says which version it needs instead of loading. Older versions can't check
+  the Ed25519 signatures newer phones make, so people in your circle would
+  quietly stop showing up.
+
 ## [0.14.0]
 
 Your position can go to your own server too, and the relay can run on one.

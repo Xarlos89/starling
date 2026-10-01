@@ -31,6 +31,9 @@ Don't want to trust our relay? Run your own. The app has a setting for a custom 
 Per-app VPN mode needs no setup. Turn on Power User Mode in Orbot and Starling proxies directly through its SOCKS port instead.
 
 <b>Honest about its limits</b>
-The relay still sees IP addresses and timing, because something has to move your ciphertext around. Keys move forward every ten minutes and the old ones are destroyed, but a phone keeps as much readable history as you let it, up to a day, and that is what a stolen phone can give up. Removing someone re-keys the circle, and nothing re-keys on its own if a phone is compromised without you knowing. All of this is written out in full, with what is and is not backed by tests, in the project's threat model.
+The relay still sees IP addresses and timing, because something has to move your ciphertext around. Keys move forward every ten minutes and the old ones are destroyed, but a phone keeps as much readable history as you let it, up to a day, and that is what a stolen phone can give up. Removing someone re-keys the circle, and nothing re-keys on its own if a phone is compromised without you knowing. All of this is written out, with what is and is not backed by tests, in the project's threat model.
 
-Source is on GitHub under the GPL-3.0-or-later license. Read the code, run the tests, or self-host the relay.
+<b>Android 9 and newer</b>
+Needs Android System WebView 137 or newer. Android 9 has had no security fixes since January 2022.
+
+Source is on GitHub under GPL-3.0-or-later. Read the code, run the tests, or self-host the relay.

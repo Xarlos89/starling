@@ -44,7 +44,13 @@ object Health {
         // What the location stack enforces right now, not just the grant.
         o.put("fineOp", runCatching {
             val ops = ctx.getSystemService(AppOpsManager::class.java)
-            when (ops.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_FINE_LOCATION, Process.myUid(), ctx.packageName)) {
+            val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                ops.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_FINE_LOCATION, Process.myUid(), ctx.packageName)
+            } else {
+                @Suppress("DEPRECATION")
+                ops.checkOpNoThrow(AppOpsManager.OPSTR_FINE_LOCATION, Process.myUid(), ctx.packageName)
+            }
+            when (mode) {
                 AppOpsManager.MODE_ALLOWED -> "allowed"
                 AppOpsManager.MODE_FOREGROUND -> "foreground"
                 AppOpsManager.MODE_IGNORED -> "ignored"

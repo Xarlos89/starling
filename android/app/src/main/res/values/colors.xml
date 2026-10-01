@@ -4,4 +4,5 @@
     <color name="starling_bg">#0a0d14</color>
     <color name="starling_fg">#e8ecf4</color>
     <color name="starling_fg_dim">#a8b0c0</color>
+    <color name="check_text">@color/starling_fg</color>
 </resources>

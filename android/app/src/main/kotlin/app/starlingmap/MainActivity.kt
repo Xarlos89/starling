@@ -92,6 +92,7 @@ class MainActivity : FragmentActivity() {
         // afford a shoulder-surfed or screen-recorded location, so it is on
         // for everybody, unconditionally.
         window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        if (!PageHost.alive && SystemCheck.blockIfWebViewTooOld(this)) return
 
         applyTorPref()
         onBackPressedDispatcher.addCallback(this, backWhileSharing)
@@ -109,6 +110,7 @@ class MainActivity : FragmentActivity() {
         } else {
             PageHost.load(fragment)
         }
+        SystemCheck.noteAndroid9(this)
     }
 
     override fun onStart() {
