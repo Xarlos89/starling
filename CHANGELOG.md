@@ -3,7 +3,9 @@
 All notable changes to Starling are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
-## [Unreleased]
+## [0.15.0]
+
+Starling runs on Android 9.
 
 - **Android 9.** Starling installs on Android 9 now. The first time it opens
   there, it says once that Android 9 has had no security fixes since January
