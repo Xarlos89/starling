@@ -3,7 +3,9 @@
 All notable changes to Starling are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
-## [Unreleased]
+## [0.15.1]
+
+Your own server can tell your phone apart.
 
 - **Tracker ID for your own server.** Settings, Sharing, Your own server takes
   an optional tracker ID, sent as `tid` with each position. colota-forwarder
