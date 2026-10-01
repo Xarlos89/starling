@@ -315,3 +315,42 @@ export function pinnedFromRecipients(recipients) {
   for (const r of recipients) next.set(r.memberId, r.rec);
   return next;
 }
+
+// ------------------------------------------------------- safety number QR
+
+// What one phone shows and the other scans. The text names whose number it
+// is and gives the digits; the scanning phone trusts neither. It looks the
+// id up in its own pinned roster, derives the number again from the keys it
+// pinned, and compares. A code that only said "verified" would be a bit an
+// attacker controls the transport for, which is exactly what the number
+// exists to replace.
+const SAFETY_QR_RE = /^starling:sn:1:([0-9a-f]{32}):(\d{30})$/;
+
+export function safetyQrText(memberId, number) {
+  const digits = String(number || "").replace(/\s+/g, "");
+  if (!/^[0-9a-f]{32}$/.test(String(memberId || "")) || !/^\d{30}$/.test(digits)) return null;
+  return `starling:sn:1:${memberId}:${digits}`;
+}
+
+export function parseSafetyQr(text) {
+  const m = SAFETY_QR_RE.exec(String(text ?? "").trim());
+  return m ? { memberId: m[1], digits: m[2] } : null;
+}
+
+// The verdict on a scanned code against this device's roster:
+//   match     the keys pinned under that id give exactly these digits
+//   mismatch  they give other digits: somebody in between, or a reinstall
+//   unknown   nobody pinned under that id (or keys that will not decode)
+//   invalid   not a Starling safety number code
+// Only "match" may lead to a verified mark, and that goes through the same
+// markVerified the manual compare uses.
+export async function checkSafetyQr(text, pinned) {
+  const parsed = parseSafetyQr(text);
+  if (!parsed) return { outcome: "invalid" };
+  const rec = pinned?.get?.(parsed.memberId);
+  if (!rec) return { outcome: "unknown", memberId: parsed.memberId };
+  const number = await safetyOf(rec);
+  if (!number) return { outcome: "unknown", memberId: parsed.memberId };
+  const outcome = number.replace(/\s+/g, "") === parsed.digits ? "match" : "mismatch";
+  return { outcome, memberId: parsed.memberId, number };
+}

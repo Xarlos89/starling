@@ -28,6 +28,7 @@ const PRECACHE = [
   "/js/joinflow.js",
   "/js/helpsession.js",
   "/js/qr.js",
+  "/js/qrscan.js",
   "/js/lock.js",
   "/js/argon2.js",
   "/js/argon2.wasm",

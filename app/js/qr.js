@@ -3,9 +3,9 @@
 // byte-for-byte against the Python qrcode library in test/qr.test.mjs, so
 // the mask evaluation below mirrors that library's exact scoring order.
 
-// GF(256) with the 0x11d reduction polynomial.
-const GF_EXP = new Uint8Array(255);
-const GF_LOG = new Uint8Array(256);
+// GF(256) with the 0x11d reduction polynomial. Shared with the decoder.
+export const GF_EXP = new Uint8Array(255);
+export const GF_LOG = new Uint8Array(256);
 {
   let x = 1;
   for (let i = 0; i < 255; i++) {
@@ -16,22 +16,66 @@ const GF_LOG = new Uint8Array(256);
   }
 }
 
-// ECC level M block layout per version: groups of [count, totalCw, dataCw].
-const RS_M = [
-  null,
-  [[1, 26, 16]],
-  [[1, 44, 28]],
-  [[1, 70, 44]],
-  [[2, 50, 32]],
-  [[2, 67, 43]],
-  [[4, 43, 27]],
-  [[4, 49, 31]],
-  [[2, 60, 38], [2, 61, 39]],
-  [[3, 58, 36], [2, 59, 37]],
-  [[4, 69, 43], [1, 70, 44]],
-];
+// Block layout per ECC level and version: groups of [count, totalCw, dataCw].
+// The encoder emits level M; the decoder reads all four, and the L, Q and H
+// rows are held to python qrcode's output in test/qrscan.test.mjs.
+export const RS_BLOCKS = {
+  L: [
+    null,
+    [[1, 26, 19]],
+    [[1, 44, 34]],
+    [[1, 70, 55]],
+    [[1, 100, 80]],
+    [[1, 134, 108]],
+    [[2, 86, 68]],
+    [[2, 98, 78]],
+    [[2, 121, 97]],
+    [[2, 146, 116]],
+    [[2, 86, 68], [2, 87, 69]],
+  ],
+  M: [
+    null,
+    [[1, 26, 16]],
+    [[1, 44, 28]],
+    [[1, 70, 44]],
+    [[2, 50, 32]],
+    [[2, 67, 43]],
+    [[4, 43, 27]],
+    [[4, 49, 31]],
+    [[2, 60, 38], [2, 61, 39]],
+    [[3, 58, 36], [2, 59, 37]],
+    [[4, 69, 43], [1, 70, 44]],
+  ],
+  Q: [
+    null,
+    [[1, 26, 13]],
+    [[1, 44, 22]],
+    [[2, 35, 17]],
+    [[2, 50, 24]],
+    [[2, 33, 15], [2, 34, 16]],
+    [[4, 43, 19]],
+    [[2, 32, 14], [4, 33, 15]],
+    [[4, 40, 18], [2, 41, 19]],
+    [[4, 36, 16], [4, 37, 17]],
+    [[6, 43, 19], [2, 44, 20]],
+  ],
+  H: [
+    null,
+    [[1, 26, 9]],
+    [[1, 44, 16]],
+    [[2, 35, 13]],
+    [[4, 25, 9]],
+    [[2, 33, 11], [2, 34, 12]],
+    [[4, 43, 15]],
+    [[4, 39, 13], [1, 40, 14]],
+    [[4, 40, 14], [2, 41, 15]],
+    [[4, 36, 12], [4, 37, 13]],
+    [[6, 43, 15], [2, 44, 16]],
+  ],
+};
+const RS_M = RS_BLOCKS.M;
 
-const ALIGN_POS = [
+export const ALIGN_POS = [
   null,
   [],
   [6, 18],
@@ -45,7 +89,7 @@ const ALIGN_POS = [
   [6, 28, 50],
 ];
 
-const MASKS = [
+export const MASKS = [
   (i, j) => (i + j) % 2 === 0,
   (i, j) => i % 2 === 0,
   (i, j) => j % 3 === 0,
@@ -69,13 +113,13 @@ function bchDigit(d) {
   return n;
 }
 
-function bchTypeInfo(data) {
+export function bchTypeInfo(data) {
   let d = data << 10;
   while (bchDigit(d) - bchDigit(G15) >= 0) d ^= G15 << (bchDigit(d) - bchDigit(G15));
   return ((data << 10) | d) ^ G15_MASK;
 }
 
-function bchTypeNumber(data) {
+export function bchTypeNumber(data) {
   let d = data << 12;
   while (bchDigit(d) - bchDigit(G18) >= 0) d ^= G18 << (bchDigit(d) - bchDigit(G18));
   return (data << 12) | d;

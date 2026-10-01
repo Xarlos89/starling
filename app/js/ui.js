@@ -849,12 +849,46 @@ export function openMembersSheet({ api, onClose }) {
   const you = el("section", "mem-you");
   const youName = el("div", "mem-name");
   const youSafety = safetyBlock(null, "own-safety");
+  // The number as a code, and the camera for theirs. Scanning lives in the
+  // app: the hosted site's headers deny the camera, and the scan is a check
+  // between two phones held up to each other, not something a tab does.
+  const youActions = el("div", "mem-you-actions");
+  const showQr = btn("btn btn-secondary btn-small", "Show as QR");
+  showQr.dataset.testid = "safety-show-qr";
+  const scanQr = btn("btn btn-secondary btn-small", "Scan theirs");
+  scanQr.dataset.testid = "safety-scan";
+  youActions.append(showQr, scanQr);
+  const scanNote = el("p", "field-note", "Scanning a code lives in the app. Here, compare the digits.");
+  scanNote.dataset.testid = "safety-scan-note";
+  const canScan = !!api.canScanQr?.();
+  scanQr.hidden = !canScan;
+  scanNote.hidden = canScan;
   you.append(
     el("span", "safety-cap", "Your number"),
     youName,
     youSafety,
     el("p", "field-note", "This is the number your circle should hear from you."),
+    youActions,
+    scanNote,
   );
+
+  showQr.addEventListener("click", async () => {
+    const text = await api.safetyQrText();
+    if (!text) {
+      toast("Your number is not ready yet.", "warn");
+      return;
+    }
+    openSafetyQrSheet({ text, qrSvgFor: api.qrSvgFor });
+  });
+  scanQr.addEventListener("click", () => {
+    openScanSheet({
+      api,
+      onResult: async (text) => {
+        const verdict = await api.checkSafetyQr(text);
+        openScanVerdict(api, verdict, { onChanged: refresh });
+      },
+    });
+  });
 
   // The access ledger: what the pinned keys MEAN, said as capability. The
   // wording is deliberate: keys that could decrypt, never "who saw" - this
@@ -944,6 +978,182 @@ export function openMembersSheet({ api, onClose }) {
 
   refresh();
   return { close: ov.close, refresh };
+}
+
+// ------------------------------------------------------ safety number QR
+
+export function openSafetyQrSheet({ text, qrSvgFor }) {
+  const ov = openOverlay({ title: "Your number as a code", testid: "safety-qr" });
+  const card = el("div", "qr-card");
+  card.dataset.testid = "safety-qr-card";
+  // qrSvg output is generated geometry from our own encoder, not user data.
+  card.innerHTML = qrSvgFor(text);
+  const svg = card.querySelector("svg");
+  svg?.setAttribute("role", "img");
+  svg?.setAttribute("aria-label", t("Safety number QR code"));
+  ov.body.append(
+    card,
+    el(
+      "p",
+      "ov-note",
+      "Let the person checking you scan this with Starling. It holds your member id and your safety number, nothing else.",
+    ),
+  );
+  return ov;
+}
+
+// The camera, drawn to a canvas a few times a second and handed to the
+// decoder. Every track stops the moment a code reads or the sheet closes,
+// and no frame leaves the page.
+export function openScanSheet({ api, onResult, onClose }) {
+  let stream = null;
+  let timer = null;
+  let closed = false;
+  const video = document.createElement("video");
+  video.className = "scan-video";
+  video.setAttribute("playsinline", "");
+  video.muted = true;
+  video.autoplay = true;
+  const stop = () => {
+    if (timer) clearInterval(timer);
+    timer = null;
+    for (const track of stream?.getTracks?.() || []) track.stop();
+    stream = null;
+    video.srcObject = null;
+  };
+  const ov = openOverlay({
+    title: "Scan their code",
+    testid: "scan-sheet",
+    onClose: () => {
+      closed = true;
+      stop();
+      onClose?.();
+    },
+  });
+  const status = el("p", "ov-note", "Point the camera at the code on their screen.");
+  status.dataset.testid = "scan-status";
+  const settings = btn("btn btn-secondary btn-small", "Open app settings");
+  settings.hidden = true;
+  settings.addEventListener("click", () => native()?.openAppSettings?.());
+  ov.body.append(video, status, settings);
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
+  function tick() {
+    if (closed || !stream || video.readyState < 2 || !video.videoWidth) return;
+    const scale = Math.min(1, 640 / Math.max(video.videoWidth, video.videoHeight));
+    canvas.width = Math.round(video.videoWidth * scale);
+    canvas.height = Math.round(video.videoHeight * scale);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    let hit = null;
+    try {
+      hit = api.decodeQr(ctx.getImageData(0, 0, canvas.width, canvas.height));
+    } catch {
+      hit = null;
+    }
+    if (!hit) return;
+    stop();
+    ov.close();
+    onResult(hit.text);
+  }
+
+  const turnedDown = () => {
+    status.textContent = t("Camera access was turned down. Allow it for Starling in system settings, then try again.");
+    status.className = "ov-warn-note";
+    settings.hidden = !native()?.openAppSettings;
+  };
+
+  (async () => {
+    // The wrapper's runtime prompt first, and its answer, before the page
+    // asks for a stream: see askCameraPermission in main.js.
+    const allowed = await api.askCamera();
+    if (closed) return;
+    if (!allowed) {
+      turnedDown();
+      return;
+    }
+    let got;
+    try {
+      got = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+    } catch (e) {
+      const name = e?.name || "";
+      if (name === "NotAllowedError" || name === "SecurityError") {
+        turnedDown();
+        return;
+      }
+      status.textContent =
+        name === "NotFoundError" || name === "OverconstrainedError"
+          ? t("No camera found on this device.")
+          : t("The camera could not start.");
+      status.className = "ov-warn-note";
+      return;
+    }
+    if (closed) {
+      for (const track of got.getTracks()) track.stop();
+      return;
+    }
+    stream = got;
+    video.srcObject = stream;
+    try {
+      await video.play();
+    } catch {
+      // autoplay already has it, or the sheet is closing
+    }
+    if (!closed) timer = setInterval(tick, 250);
+  })();
+
+  return ov;
+}
+
+// What a scan came to. A match offers the same markVerified the manual
+// compare uses and nothing else does; a mismatch reads like a key change,
+// because that is what it is until a human says otherwise.
+function openScanVerdict(api, verdict, { onChanged }) {
+  const ov = openOverlay({ title: "Scan result", testid: "scan-result" });
+  const id = verdict.memberId || "";
+  const rec = id ? api.pinnedList().find((p) => p.memberId === id) : null;
+  const who = id ? api.members().find((m) => m.id === id)?.name || rec?.name || t("Member") : "";
+  if (verdict.outcome === "match") {
+    ov.body.append(el("p", "ov-note", t("The code matches the keys this phone holds for {who}. Nobody is in between.", { who })));
+    ov.body.append(safetyBlock(verdict.number, "scan-number"));
+    const changing = api.keyChanges().some((c) => c.memberId === id);
+    if (changing) {
+      ov.body.append(el("p", "ov-warn-note", t("{who} is answering with different keys right now. Settle that on their card before marking anything.", { who })));
+    } else if (rec?.verified) {
+      ov.body.append(el("p", "field-note", t("{who} is already marked verified.", { who })));
+    } else {
+      const mark = btn("btn btn-primary", t("Mark {who} verified", { who }));
+      mark.dataset.testid = "scan-mark-verified";
+      mark.addEventListener("click", async () => {
+        mark.disabled = true;
+        try {
+          if (await api.markVerified(id, true)) toast(t("{who} is verified.", { who }));
+        } finally {
+          mark.disabled = false;
+        }
+        ov.close();
+        onChanged();
+      });
+      ov.body.append(mark);
+    }
+  } else if (verdict.outcome === "mismatch") {
+    ov.body.append(
+      el(
+        "p",
+        "ov-warn-note",
+        t("The code does not match the keys this phone holds for {who}. That is a reinstall, or somebody in between, and this phone cannot tell which. Do not mark them verified. Read the digits out to each other, and if they still differ, remove them.", { who }),
+      ),
+    );
+  } else if (verdict.outcome === "unknown") {
+    ov.body.append(el("p", "ov-note", "That code belongs to nobody in this circle."));
+  } else {
+    ov.body.append(el("p", "ov-note", "That is not a Starling safety number code."));
+  }
+  return ov;
 }
 
 // --------------------------------------------------------- help link sheet

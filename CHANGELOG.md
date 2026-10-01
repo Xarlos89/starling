@@ -34,6 +34,17 @@ All notable changes to Starling are recorded here. Versions follow
   do this was to stretch the three minutes for everyone, which would have
   hidden a phone that really had died. Phones on older versions do not read
   the new field, so they show a 5 minute sender as "Last seen" between posts.
+- **Safety numbers as QR codes.** People and keys has "Show as QR" under your
+  own number and "Scan theirs" to read the other phone's. A scan looks the
+  member up in your pinned roster, works their number out again from the keys
+  you hold, and compares. A match offers the same verified mark the in-person
+  compare does; a different number is a warning in the words a key change
+  gets, and a code for somebody you have not pinned says so. The decoder is
+  in-house, like the encoder, and reads versions 1 to 10 at every error
+  correction level, rotated, tilted, blurred or noisy, with the camera
+  stopped the moment a code reads. The app asks for the camera on the tap and
+  grants it to the bundled page only. On the website the scanner is off,
+  since the site's headers deny the camera; the code still shows there.
 
 ## [0.15.2]
 

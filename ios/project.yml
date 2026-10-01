@@ -32,6 +32,9 @@ targets:
         # you first. The wrapper cannot read location in the background at
         # all; the string promises no more than the platform allows.
         NSLocationWhenInUseUsageDescription: Starling shares your location with your circle only while the app is open. It is encrypted so that only your circle can read it.
+        # Only when you tap "Scan theirs" on a safety number. Frames go to the
+        # decoder in the page and nowhere else; nothing is saved or sent.
+        NSCameraUsageDescription: Starling uses the camera only to scan a safety number code someone shows you. Nothing is saved or sent.
         # Standard WebCrypto algorithms only; exempt, nothing proprietary.
         ITSAppUsesNonExemptEncryption: false
     settings:

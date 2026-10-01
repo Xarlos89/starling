@@ -115,6 +115,22 @@ class StarlingBridge(private val app: Context) {
         }
     }
 
+    // ---------------------------------------------------------------- camera
+
+    // Asked when the page opens the scanner, before it calls getUserMedia:
+    // the WebView refuses that call outright while the app lacks the runtime
+    // grant, so the prompt has to be over first. Answers through
+    // __starlingCamera(token, granted); true at once when already held.
+    @JavascriptInterface
+    fun requestCamera(token: String) {
+        ui { it.askCameraFor(token) }
+    }
+
+    @JavascriptInterface
+    fun hasCameraPermission(): Boolean =
+        ContextCompat.checkSelfPermission(app, android.Manifest.permission.CAMERA) ==
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+
     // ------------------------------------------------------------- clipboard
 
     // Clear the clipboard only if it still holds exactly the text the app put

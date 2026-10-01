@@ -10,6 +10,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.view.WindowManager
 import android.webkit.GeolocationPermissions
+import android.webkit.PermissionRequest
 import android.webkit.WebView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
@@ -83,6 +84,25 @@ class MainActivity : FragmentActivity() {
         ActivityResultContracts.RequestPermission(),
     ) { /* the share notification is a courtesy; sharing works without it */ }
 
+    // The page's camera requests waiting on the CAMERA runtime prompt: the
+    // bridge tokens asked before getUserMedia, and any WebView request that
+    // arrived while the prompt was up.
+    private val pendingCameraTokens = mutableListOf<String>()
+    private val pendingCamera = mutableListOf<PermissionRequest>()
+
+    private val cameraPermission = registerForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        val tokens = pendingCameraTokens.toList()
+        pendingCameraTokens.clear()
+        for (t in tokens) PageHost.cameraReply(t, granted)
+        val waiting = pendingCamera.toList()
+        pendingCamera.clear()
+        for (req in waiting) {
+            if (granted) req.grant(arrayOf(PermissionRequest.RESOURCE_VIDEO_CAPTURE)) else req.deny()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -148,6 +168,9 @@ class MainActivity : FragmentActivity() {
     override fun onDestroy() {
         torSilenceCheck?.let { PageHost.cancel(it) }
         torSilenceCheck = null
+        for (req in pendingCamera) runCatching { req.deny() }
+        pendingCamera.clear()
+        pendingCameraTokens.clear()
         // A configuration change destroys this activity and immediately builds
         // another one, so the page is kept for the replacement regardless of
         // the switch.
@@ -220,6 +243,43 @@ class MainActivity : FragmentActivity() {
         runCatching {
             startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
         }
+    }
+
+    // ------------------------------------------------------------- camera
+
+    fun hasCameraPermission(): Boolean =
+        ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+
+    // A getUserMedia from the page, which PageHost has already checked comes
+    // from the bundled origin and asks for video only. Granted at once when
+    // the runtime permission is held, else held until the prompt answers,
+    // the way a geolocation prompt is.
+    fun askCamera(request: PermissionRequest) {
+        if (hasCameraPermission()) {
+            request.grant(arrayOf(PermissionRequest.RESOURCE_VIDEO_CAPTURE))
+            return
+        }
+        pendingCamera.add(request)
+        requestCameraPermission()
+    }
+
+    // The bridge's ask, answered through the page's __starlingCamera.
+    fun askCameraFor(token: String) {
+        if (hasCameraPermission()) {
+            PageHost.cameraReply(token, true)
+            return
+        }
+        pendingCameraTokens.add(token)
+        requestCameraPermission()
+    }
+
+    // No in-flight flag: a launch while another prompt (location, say) is up
+    // is dropped by the framework with no result, and a flag would then
+    // keep every later tap from asking at all. A second launch while the
+    // camera prompt itself is up is ignored the same way, harmlessly.
+    fun requestCameraPermission() {
+        if (hasCameraPermission()) return
+        cameraPermission.launch(Manifest.permission.CAMERA)
     }
 
     fun requestNotifyPermissionIfNeeded() {

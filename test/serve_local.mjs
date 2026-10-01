@@ -37,6 +37,9 @@ const STATIC_HEADERS = {
   "permissions-policy": "geolocation=(self), camera=(), microphone=()",
   "cross-origin-opener-policy": "same-origin",
 };
+// The wrapper's asset loader sends no Permissions-Policy, so a check that
+// stands in for the app (test/e2e_qrscan.mjs) runs without the site's camera denial.
+if (process.env.STARLING_WRAPPER_HEADERS === "1") delete STATIC_HEADERS["permissions-policy"];
 
 const server = http.createServer(async (req, res) => {
   const chunks = [];

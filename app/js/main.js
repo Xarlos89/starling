@@ -54,6 +54,8 @@ import {
   rekeyRecipients,
   rosterAfterRekey,
   sameKey,
+  safetyQrText,
+  checkSafetyQr,
 } from "./roster.js";
 import { createRatchet, epochAt, HISTORY_CHOICES, DEFAULT_HISTORY_EPOCHS } from "./ratchet.js";
 import {
@@ -80,6 +82,7 @@ import {
   promptInstall,
 } from "./platform.js";
 import { qrSvg } from "./qr.js";
+import { decode as decodeQr } from "./qrscan.js";
 import { dbGet, dbSet, dbDel, wipeAll, persistenceBroken } from "./store.js";
 // The at-rest, lock and destruct decisions: may this be written and under
 // which key, what an unlock attempt just found, what this launch found, and
@@ -5338,6 +5341,48 @@ function callNative(name) {
 const openBatterySettings = () => callNative("openBatterySettings");
 const openAppSettingsPage = () => callNative("openAppSettings");
 
+// The camera permission, asked of the wrapper and awaited before the page
+// asks for a stream: the WebView refuses getUserMedia outright while the app
+// lacks the runtime CAMERA grant, prompt or no prompt. Answers come back
+// through a token on a global, like the biometric calls. True wherever
+// there is no bridge to ask, which leaves the browser's own prompt in charge.
+const CAMERA_ASK_TIMEOUT_MS = 120000;
+let cameraTokenN = 0;
+const cameraPending = new Map();
+
+window.__starlingCamera = (token, granted) => {
+  const p = cameraPending.get(token);
+  if (!p) return;
+  cameraPending.delete(token);
+  clearTimeout(p.timer);
+  p.resolve(granted === true);
+};
+
+function askCameraPermission() {
+  const n = native();
+  if (typeof n?.requestCamera !== "function") return Promise.resolve(true);
+  try {
+    if (n.hasCameraPermission?.() === true) return Promise.resolve(true);
+  } catch {
+    // an older wrapper without the method
+  }
+  return new Promise((resolve) => {
+    const token = `c${++cameraTokenN}`;
+    const timer = setTimeout(() => {
+      cameraPending.delete(token);
+      resolve(false);
+    }, CAMERA_ASK_TIMEOUT_MS);
+    cameraPending.set(token, { resolve, timer });
+    try {
+      n.requestCamera(token);
+    } catch {
+      cameraPending.delete(token);
+      clearTimeout(timer);
+      resolve(false);
+    }
+  });
+}
+
 // Asked once. "Not now" is final; Settings keeps the state and the button.
 function askBatteryExemption() {
   markBatteryAsked();
@@ -6166,6 +6211,19 @@ const api = {
   acceptKeyChange,
   markVerified,
   safetyNumberFor,
+  // Safety number as a code, and a scanned code checked against the pinned
+  // roster. The scanner lives in the app: the hosted site's headers deny the
+  // camera, and a browser tab is not where a circle is checked anyway.
+  safetyQrText: async () => {
+    const me = state.identity?.memberId;
+    const number = me ? await safetyNumberFor(me) : null;
+    return me && number ? safetyQrText(me, number) : null;
+  },
+  checkSafetyQr: (text) => checkSafetyQr(text, state.pinned),
+  decodeQr,
+  askCamera: askCameraPermission,
+  canScanQr: () => isBundled() && typeof navigator.mediaDevices?.getUserMedia === "function",
+  qrSvgFor: (text) => qrSvg(text, qrColors()),
   rekeyCircle,
   removeMember,
   rosterMismatch: () => state.rosterMismatch,

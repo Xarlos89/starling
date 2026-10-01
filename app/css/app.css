@@ -2665,6 +2665,23 @@ button.you-info {
   cursor: pointer;
 }
 
+.mem-you-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* The camera view while scanning a safety number code. */
+.scan-video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  max-height: 60vh;
+  object-fit: cover;
+  border-radius: var(--r-md);
+  background: #000;
+}
+
 .safety-huge {
   display: grid;
   grid-template-columns: 1fr 1fr;

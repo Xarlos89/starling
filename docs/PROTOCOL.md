@@ -199,6 +199,22 @@ trust, and mark each other verified. Verification is local state; the protocol
 carries no "verified" bit, because a bit an attacker controls the transport for
 is not evidence of anything.
 
+The app can also show the number as a QR code and scan the other phone's. The
+code holds the text
+
+```
+starling:sn:1:<member id>:<30 digits>
+```
+
+and nothing else: whose number it is, and the digits with the spaces removed.
+The scanning phone trusts neither field. It looks the id up in its own pinned
+roster, derives that member's safety number again from the keys it pinned, and
+compares. Only an exact match offers to mark the member verified, through the
+same local path the in-person compare uses; a different number is shown as a
+warning in the same words a key change gets, and an id that is not in the
+roster is said to be nobody in this circle. The camera does the job of the
+voice, not the job of the number.
+
 When a pinned member's keys change, the client does **not** silently re-pin. It
 surfaces the change, drops that member's points until a human accepts it, and
 keeps showing the old safety number alongside the new one. Accepting re-pins

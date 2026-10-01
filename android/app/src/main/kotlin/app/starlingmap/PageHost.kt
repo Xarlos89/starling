@@ -13,6 +13,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.webkit.GeolocationPermissions
+import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -222,6 +223,22 @@ object PageHost {
                 if (ui.hasLocationPermission()) callback.invoke(origin, true, false)
                 else ui.askGeolocation(origin, callback)
             }
+
+            // The page's camera, for the safety number scan. Video capture
+            // only, and only for the bundled page. The WebView never
+            // navigates off the asset origin, but the check costs nothing
+            // and a mistake elsewhere must not turn into a camera grant.
+            override fun onPermissionRequest(request: PermissionRequest) {
+                val origin = request.origin
+                val ours = origin.scheme == "https" && origin.host == MainActivity.ASSET_HOST
+                val video = request.resources.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
+                val ui = activity
+                if (!ours || !video || ui == null) {
+                    request.deny()
+                    return
+                }
+                ui.askCamera(request)
+            }
         }
 
         LocationService.sink = { json -> deliverFix(json) }
@@ -338,6 +355,9 @@ object PageHost {
     fun notice(message: String) = eval("globalThis.__starlingNotice && __starlingNotice(${JSONObject.quote(message)})")
 
     fun hashChange(fragment: String) = eval("location.hash = ${JSONObject.quote("#$fragment")}")
+
+    fun cameraReply(token: String, granted: Boolean) =
+        eval("globalThis.__starlingCamera && __starlingCamera(${JSONObject.quote(token)}, $granted)")
 
     fun bioReply(token: String, payload: String?) {
         val p = if (payload == null) "null" else JSONObject.quote(payload)

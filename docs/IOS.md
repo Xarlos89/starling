@@ -16,6 +16,7 @@ table below is the whole difference.
 | Create, join, and run a circle | yes | yes |
 | Tapped invite links open the app | yes, App Links | no: a tapped invite opens Safari's landing page. Joining means copying the link and pasting it inside the app (Join, then paste). Universal links need a paid team's association file and are roadmap |
 | End-to-end encryption, safety numbers, re-keying | yes | yes |
+| Safety number as a QR code, and scanning theirs | yes, camera prompt on the tap | showing works. Scanning is untested: the camera usage string is in Info.plist and the page asks WebKit for the camera, but nobody has run it on a device yet |
 | Live map, places, SOS, status, duress code | yes | yes |
 | Sharing with the screen off | yes, foreground service | no. iOS gives a web view zero background execution; sharing runs while the app is open, and the UI says so |
 | SOS/arrival/low-battery notifications | yes | no, they need the background poller |
