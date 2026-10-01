@@ -178,9 +178,14 @@ is what makes the last hop trustworthy under `TRUST_PROXY=1`.
 
 The Android and iOS apps always have the Settings option for a custom relay:
 enter your relay's `https://` origin (for example
-`https://relay.example.org`), no trailing slash needed. Everyone you are
-sharing with sets the same custom relay, the same way an invite already
-requires everyone to be on the same circle secret.
+`https://relay.example.org`), no trailing slash needed, and restart Starling.
+Everyone in the circle has to use the same relay.
+
+Invite links made on a phone that uses your relay carry its address. A phone
+that opens one with no circle yet shows the address in the join sheet and
+switches to it when the person asks to join, so new people need no setup. A
+phone that is already in circles on another relay is told which relay the
+invitation needs instead, since one relay serves every circle on a phone.
 
 The hosted web app at starlingmap.app cannot be pointed at a custom relay.
 Its server sends a `Content-Security-Policy` header pinning `connect-src` to

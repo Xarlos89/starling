@@ -4,7 +4,7 @@
 // location whose protocol is the starling: scheme.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeRelay, setApiBase, apiUrl, getApiBase, shareUrlBase, isWrapped, isIOSWrapped, isBundled, shareCapable, debugHooks } from "../app/js/env.js";
+import { normalizeRelay, setApiBase, apiUrl, getApiBase, customRelayInUse, shareUrlBase, isWrapped, isIOSWrapped, isBundled, shareCapable, debugHooks } from "../app/js/env.js";
 const envExports = { shareCapable };
 
 function withBridge(bridge, fn) {
@@ -84,6 +84,20 @@ test("a custom relay overrides the default on both hosts", () => {
   // Junk falls back to the host default instead of poisoning the base.
   setApiBase("http://nope");
   assert.equal(getApiBase(), "");
+  setApiBase(null);
+});
+
+test("customRelayInUse names a custom relay and nothing else", () => {
+  setApiBase(null);
+  assert.equal(customRelayInUse(), "", "same-origin web");
+  withBridge({}, () => {
+    setApiBase(null);
+    assert.equal(customRelayInUse(), "", "the wrapper's default relay");
+    setApiBase("https://starlingmap.app/");
+    assert.equal(customRelayInUse(), "", "the default relay typed in by hand");
+    setApiBase("https://relay.example.org/starling/");
+    assert.equal(customRelayInUse(), "https://relay.example.org/starling");
+  });
   setApiBase(null);
 });
 

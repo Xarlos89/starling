@@ -344,6 +344,22 @@ not that shape is not a v2 invitation and the app refuses it rather than
 treating it as an unauthenticated one: accepting it would keep the whole v1
 attack alive for anyone who kept an old link.
 
+An inviter on a custom relay appends a third part, the relay's normalized
+`https://` URL as UTF-8 in unpadded base64url:
+
+```
+#j=<b64u(IS)>.<b64u(C)>.<b64u(relay)>
+```
+
+The join request has to land where the inviter is listening, and without this
+a phone that opens the link posts it to whatever relay it already uses. The
+part must decode to exactly what the app's relay normalization would produce,
+or the whole link is refused. Links made on the default relay stay two-part,
+so versions that predate the third part still open them. A device in no
+circle, with no request in flight, switches to the named relay before it asks
+and says so in the join sheet. A device that already has circles on another
+relay is told instead, because one relay serves every circle on a device.
+
 From `IS`:
 
 | value             | derivation                                        | length | use                |

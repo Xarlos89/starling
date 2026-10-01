@@ -379,7 +379,7 @@ export function openIdentitySheet({ title, intro, cta, profile, circleName, onSa
   return ov;
 }
 
-export function openJoinSheet({ profile, hasCircle, circleName, onJoin }) {
+export function openJoinSheet({ profile, hasCircle, circleName, relayHost, onJoin }) {
   const ov = openOverlay({ title: "Join a circle", testid: "join-sheet" });
   ov.body.append(
     el("p", "ov-note", "You have an invite to a circle. Set up how you will appear to the people in it."),
@@ -393,6 +393,11 @@ export function openJoinSheet({ profile, hasCircle, circleName, onJoin }) {
     ov.body.append(
       el("p", "ov-note", "Your current circle stays. This adds a new one, and you can switch between them from the circle name at the top of the map."),
     );
+  }
+  if (relayHost) {
+    const note = el("p", "ov-note", t("This circle uses the relay at {host}. Asking to join switches Starling to it.", { host: relayHost }));
+    note.dataset.testid = "join-relay-note";
+    ov.body.append(note);
   }
   const { wrap, input, grid } = identityFields(profile);
   ov.body.append(wrap);

@@ -367,6 +367,43 @@ test("the inviter commitment is 128 bits of SHA-256 over BOTH public keys", asyn
   assert.notDeepEqual(commit, (await inviterCommitment(id.epk, id.pk)).slice(0, 16));
 });
 
+test("an invite made on a custom relay names it, and older two-part links still parse", async () => {
+  const secret = newInviteSecret();
+  const id = await generateIdentity();
+  const commit = await inviterCommitment(id.pk, id.epk);
+  const relay = "https://relay.example.org/starling";
+  const frag = inviteFragment(secret, commit, relay);
+  assert.match(frag, /^#j=[A-Za-z0-9_-]{43}\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]+$/);
+  const back = parseInviteFragment(frag);
+  assert.deepEqual(back.secret, secret);
+  assert.deepEqual(back.commit, commit);
+  assert.equal(back.relay, relay);
+  // The default relay adds nothing, so a version that predates the relay part
+  // opens these links exactly as before.
+  assert.equal(inviteFragment(secret, commit, ""), inviteFragment(secret, commit));
+  assert.equal(parseInviteFragment(inviteFragment(secret, commit)).relay, "");
+});
+
+test("a relay part that is not exactly a normalized https relay refuses the whole link", async () => {
+  const id = await generateIdentity();
+  const head = inviteFragment(newInviteSecret(), await inviterCommitment(id.pk, id.epk));
+  const part = (text) => `${head}.${b64uEncode(new TextEncoder().encode(text))}`;
+  for (const relay of [
+    "http://relay.example.org",           // not https
+    "https://relay.example.org/",         // not normalized
+    "https://user:pw@relay.example.org",  // credentials
+    "https://relay.example.org?k=1",      // query
+    "javascript:alert(1)",
+    "relay.example.org",
+  ]) {
+    assert.equal(parseInviteFragment(part(relay)), null, relay);
+  }
+  assert.equal(parseInviteFragment(`${head}.${b64uEncode(new Uint8Array([0xff, 0xfe, 0x80]))}`), null, "not UTF-8");
+  assert.equal(parseInviteFragment(`${head}.`), null, "an empty relay part");
+  assert.equal(parseInviteFragment(`${head}.${"A".repeat(2733)}`), null, "longer than any relay");
+  assert.equal(parseInviteFragment(part("https://relay.example.org")).relay, "https://relay.example.org");
+});
+
 test("a v1-shaped invite fragment with no commitment is refused", async () => {
   // The whole of the takeover: a link that names nobody is answered by whoever
   // posts first, and the attacker posts first because the real inviter has to
@@ -399,7 +436,7 @@ test("parseInviteFragment rejects malformed fragments", async () => {
     `#j=${s43.slice(0, 42)}.${c22}`,
     `#j=${"+".repeat(43)}.${c22}`,      // non-b64u chars
     `#j=${s43}.${"/".repeat(22)}`,
-    `#j=${s43}.${c22}.${c22}`,          // a third part
+    `#j=${s43}.${c22}.${c22}`,          // a third part that is not a relay
     "#j=",
   ];
   for (const h of bad) {

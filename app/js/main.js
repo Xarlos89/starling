@@ -20,6 +20,7 @@ import {
   inviteMintedBy,
   inviteWatchDecision,
   joinPromptVerdict,
+  joinRelayVerdict,
   mintDecision,
   recordOverflows,
   screenJoinRequest,
@@ -99,7 +100,7 @@ import {
   zero,
 } from "./lock.js";
 import { createPlaceTracker, sanitizePlaces, newPlaceId, fenceSnap, DEFAULT_RADIUS } from "./places.js";
-import { debugHooks, apiUrl, isWrapped, isBundled, native, pageShown, shareUrlBase, normalizeRelay, normalizeForward, normalizeForwardTid, setApiBase, shareCapable } from "./env.js";
+import { debugHooks, apiUrl, customRelayInUse, isWrapped, isBundled, native, pageShown, shareUrlBase, normalizeRelay, normalizeForward, normalizeForwardTid, setApiBase, shareCapable } from "./env.js";
 import {
   isSealedRecordError,
   GEN_SLOT,
@@ -3422,20 +3423,59 @@ function promptJoin(invite) {
     ui.toast("That is your own invite link.");
     return;
   }
+  const relayVerdict = joinRelayVerdict({
+    inviteRelay: invite.relay,
+    currentRelay: customRelayInUse(),
+    committed: (!!state.gen && !state.demo) || state.circles.length > 0 || !!state.joining,
+  });
+  if (relayVerdict === "mismatch") {
+    showRelayMismatch(invite.relay);
+    return;
+  }
   ui.openJoinSheet({
     profile: state.profile,
     hasCircle: !!state.gen,
     circleName: { value: "" },
+    relayHost: relayVerdict === "adopt" ? new URL(invite.relay).host : "",
     onJoin: (p) =>
       withCircleGuard(async () => {
         // Joining from inside the demo ends the demo first, so the real
         // circle and its poller take over instead of the demo walkers.
         if (state.demo) exitDemo();
+        if (relayVerdict === "adopt") await adoptRelay(invite.relay);
         await saveProfile(p);
         await joinWithInvite(invite, p);
         ui.toast("Request sent. Someone in the circle has to accept it from their phone.");
       }),
   });
+}
+
+// Only reached with no circle and no request in flight, so nothing is polling
+// or sending yet and the base can change now instead of at the next start.
+async function adoptRelay(relay) {
+  state.relay = relay;
+  await dbSet("relay", relay);
+  setApiBase(relay);
+}
+
+function showRelayMismatch(relay) {
+  const current = customRelayInUse();
+  const ov = ui.openOverlay({ title: "This circle uses another relay", testid: "relay-mismatch" });
+  ov.body.append(
+    ui.el("p", "ov-note", t("This invitation is for a circle on {host}.", { host: new URL(relay).host })),
+    ui.el(
+      "p",
+      "ov-note",
+      current
+        ? t("Your circles use {host}, and Starling talks to one relay at a time.", { host: new URL(current).host })
+        : t("Your circles use the default relay, and Starling talks to one relay at a time."),
+    ),
+    ui.el(
+      "p",
+      "ov-note",
+      t("To join it, put {relay} in Settings, Advanced, Relay, restart Starling and open the link again. Your other circles stop updating while it is set.", { relay }),
+    ),
+  );
 }
 
 function promptPasteInvite() {
@@ -3589,7 +3629,7 @@ function pollInviteChannel({ chanId, key, selfId, onMessage, onBatch, screenEntr
   };
 }
 
-const inviteLinkFor = (inv) => `${shareUrlBase()}${inviteFragment(inv.secret, inv.commit)}`;
+const inviteLinkFor = (inv) => `${shareUrlBase()}${inviteFragment(inv.secret, inv.commit, customRelayInUse())}`;
 
 // Mint an invitation. One at a time, and a fresh one replaces the last: two
 // live credentials for one circle is two chances for the wrong person to be
@@ -6031,6 +6071,9 @@ if (debugHooks()) window.__starlingInternals = {
   switchCircle,
   writeChainKey,
   joinWithInvite,
+  promptJoin,
+  inviteLinkFor,
+  adoptRelay,
   boot,
   DESTROYED_KEY,
   writePlacesAtRest,

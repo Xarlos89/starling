@@ -547,4 +547,11 @@ export const es = {
   "Your position goes out as {tid}.": "Tu ubicación se envía como {tid}.",
   "Your position goes out with no tracker ID.": "Tu ubicación se envía sin ID de rastreador.",
   "Your position no longer goes to your own server.": "Tu ubicación ya no va a tu propio servidor.",
+  "Advanced": "Avanzado",
+  "This circle uses another relay": "Este círculo usa otro relay",
+  "This circle uses the relay at {host}. Asking to join switches Starling to it.": "Este círculo usa el relay de {host}. Al pedir unirte, Starling pasa a usarlo.",
+  "This invitation is for a circle on {host}.": "Esta invitación es para un círculo en {host}.",
+  "To join it, put {relay} in Settings, Advanced, Relay, restart Starling and open the link again. Your other circles stop updating while it is set.": "Para unirte, pon {relay} en Ajustes, Avanzado, Relay, reinicia Starling y vuelve a abrir el enlace. Tus otros círculos dejan de actualizarse mientras esté puesto.",
+  "Your circles use the default relay, and Starling talks to one relay at a time.": "Tus círculos usan el relay predeterminado, y Starling usa un solo relay a la vez.",
+  "Your circles use {host}, and Starling talks to one relay at a time.": "Tus círculos usan {host}, y Starling usa un solo relay a la vez.",
 };

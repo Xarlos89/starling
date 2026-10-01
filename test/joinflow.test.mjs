@@ -21,6 +21,7 @@ import {
   inviteMintedBy,
   inviteWatchDecision,
   joinPromptVerdict,
+  joinRelayVerdict,
   memberRecordBody,
   mintDecision,
   recordOverflows,
@@ -551,4 +552,18 @@ test("the code admits in the order the plan says it does", async () => {
     at = next;
   }
   assert.deepEqual(found, ["claim-slot", "rekey", "send-welcome", "burn-invite"], "every step was located in order");
+});
+
+test("a link naming a relay is joined through it, or explained, never sent somewhere else", () => {
+  const relay = "https://relay.example.org";
+  // Nothing to change: same relay, or a link that names none.
+  assert.equal(joinRelayVerdict({ inviteRelay: relay, currentRelay: relay, committed: true }), "same");
+  assert.equal(joinRelayVerdict({ inviteRelay: "", currentRelay: "", committed: false }), "same");
+  assert.equal(joinRelayVerdict({ inviteRelay: "", currentRelay: relay, committed: true }), "same");
+  // A device with nothing on its relay yet switches before it asks.
+  assert.equal(joinRelayVerdict({ inviteRelay: relay, currentRelay: "", committed: false }), "adopt");
+  assert.equal(joinRelayVerdict({ inviteRelay: relay, currentRelay: "https://other.example.net", committed: false }), "adopt");
+  // A device with circles or a pending request on another relay does not.
+  assert.equal(joinRelayVerdict({ inviteRelay: relay, currentRelay: "", committed: true }), "mismatch");
+  assert.equal(joinRelayVerdict({ inviteRelay: relay, currentRelay: "https://other.example.net", committed: true }), "mismatch");
 });

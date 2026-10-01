@@ -3,6 +3,17 @@
 All notable changes to Starling are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
+## [Unreleased]
+
+- **Invites on your own relay.** An invite link made on a phone that uses a
+  custom relay now carries the relay's address. Before, the phone that opened
+  it asked to join through its own relay, the default one on a fresh install,
+  so the request never reached a self-hosted relay (#9). A phone with no
+  circle yet shows the address and switches to it when you ask to join. A
+  phone already in circles on another relay says which relay the invitation
+  needs instead. Links made on the default relay are unchanged, so older
+  versions still open them.
+
 ## [0.15.1]
 
 A tracker ID for your own server.

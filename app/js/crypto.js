@@ -19,6 +19,7 @@ import {
   b64uDecode,
 } from "./wire.js";
 import { nonceFor } from "./ratchet.js";
+import { normalizeRelay } from "./env.js";
 
 const subtle = globalThis.crypto.subtle;
 const te = new TextEncoder();
@@ -246,22 +247,33 @@ export function equalBytes(a, b) {
   return diff === 0;
 }
 
-export function inviteFragment(secret, commitment) {
-  return `#j=${b64uEncode(secret)}.${b64uEncode(commitment)}`;
+// A link made on a custom relay carries it as a third part. Links on the
+// default relay keep the two-part shape, so older versions can still open them.
+export function inviteFragment(secret, commitment, relay = "") {
+  const head = `#j=${b64uEncode(secret)}.${b64uEncode(commitment)}`;
+  return relay ? `${head}.${b64uEncode(te.encode(relay))}` : head;
 }
 
-// Returns { secret, commit } or null. A fragment with no commitment is not a
-// v2 invitation and is refused rather than treated as an unauthenticated one:
-// accepting it would keep the whole attack alive for anyone who kept an old
-// link, and there is nothing a joiner could safely do with it.
+// Returns { secret, commit, relay } or null, with relay "" when the link names
+// none. A fragment with no commitment is not a v2 invitation and is refused
+// rather than treated as an unauthenticated one: accepting it would keep the
+// whole attack alive for anyone who kept an old link, and there is nothing a
+// joiner could safely do with it. A relay part has to be exactly what
+// normalizeRelay would have written, or the whole link is refused.
 export function parseInviteFragment(hash) {
-  const m = /^#j=([A-Za-z0-9_-]{43})\.([A-Za-z0-9_-]{22})$/.exec(hash || "");
+  const m = /^#j=([A-Za-z0-9_-]{43})\.([A-Za-z0-9_-]{22})(?:\.([A-Za-z0-9_-]{1,2732}))?$/.exec(hash || "");
   if (!m) return null;
   try {
     const secret = b64uDecode(m[1]);
     const commit = b64uDecode(m[2]);
     if (secret.length !== 32 || commit.length !== 16) return null;
-    return { secret, commit };
+    let relay = "";
+    if (m[3] !== undefined) {
+      const raw = new TextDecoder("utf-8", { fatal: true }).decode(b64uDecode(m[3]));
+      relay = normalizeRelay(raw) ?? "";
+      if (!relay || relay !== raw) return null;
+    }
+    return { secret, commit, relay };
   } catch {
     return null;
   }

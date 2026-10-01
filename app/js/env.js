@@ -166,6 +166,14 @@ export const getApiBase = () => {
   return apiBase;
 };
 
+// The relay this run talks to when it is not the default one, else "". An
+// invite link names it, because the phone that opens the link has to post its
+// request where the inviter is listening.
+export function customRelayInUse() {
+  const base = getApiBase();
+  return base && base !== CANONICAL ? base : "";
+}
+
 // Base for beacon (emergency help) links. The viewer page must poll the same
 // relay the beacon posts to, and the hosted site's CSP header pins
 // connect-src to its own origin (the wrappers' meta CSP allows https:, which

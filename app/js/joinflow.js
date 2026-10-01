@@ -101,6 +101,20 @@ export function slotFailure(err) {
   return { jammed, burn: jammed };
 }
 
+// --- which relay ------------------------------------------------------------
+
+// The request has to land on the relay the inviter is listening on. "same":
+// nothing to change, which is also the answer for a link that names no relay,
+// since that is either the default relay or a version that never said.
+// "adopt": this device is in no circle and waiting on no other request, so
+// nothing else depends on its relay and it can switch before it asks.
+// "mismatch": one relay serves every circle on a device, so switching would
+// strand the ones it already has, and that is a choice for Settings.
+export function joinRelayVerdict({ inviteRelay, currentRelay, committed }) {
+  if (!inviteRelay || inviteRelay === currentRelay) return "same";
+  return committed ? "mismatch" : "adopt";
+}
+
 // --- the joiner asking ------------------------------------------------------
 
 // A join request, screened before a person is ever shown it. Nothing here

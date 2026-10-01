@@ -1840,3 +1840,92 @@ test("every stop path kills the countdown: a stale deadline must not end the nex
   assert.equal(internals.shareStatus().deadline, null, "stop killed the deadline");
   assert.equal(internals.shareStatus().windowMs, 0);
 });
+
+// --- invite links and custom relays --------------------------------------
+
+const envMod = await import("../app/js/env.js");
+const { parseInviteFragment: parseFragment } = await import("../app/js/crypto.js");
+
+function findTestid(node, testid) {
+  if (!node) return null;
+  if (node.dataset?.testid === testid) return node;
+  for (const kid of node.children || []) {
+    const hit = findTestid(kid, testid);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+async function relayInvite(relay) {
+  const id = await generateIdentity();
+  return { secret: newInviteSecret(), commit: await inviterCommitment(id.pk, id.epk), relay };
+}
+
+test("an invite link names the custom relay this run uses, and nothing on the default", async () => {
+  const inv = await relayInvite("");
+  try {
+    envMod.setApiBase("https://relay.example.org");
+    const link = internals.inviteLinkFor(inv);
+    assert.equal(parseFragment(link.slice(link.indexOf("#"))).relay, "https://relay.example.org");
+    envMod.setApiBase(null);
+    const plain = internals.inviteLinkFor(inv);
+    assert.equal(parseFragment(plain.slice(plain.indexOf("#"))).relay, "", "the default relay leaves the link two-part");
+  } finally {
+    envMod.setApiBase(null);
+  }
+});
+
+test("a relay link on a device with circles explains instead of opening the join sheet", async () => {
+  const host = document.getElementById("overlays");
+  const saved = { gen: state.gen, circles: state.circles, joining: state.joining, demo: state.demo, locked: state.locked };
+  try {
+    Object.assign(state, { gen: null, circles: [{}], joining: null, demo: false, locked: false });
+    host.children.length = 0;
+    internals.promptJoin(await relayInvite("https://relay.example.org"));
+    assert.ok(findTestid(host, "relay-mismatch"), "the mismatch is explained");
+    assert.equal(findTestid(host, "join-sheet"), null, "no request goes out through the wrong relay");
+  } finally {
+    host.children.length = 0;
+    Object.assign(state, saved);
+  }
+});
+
+test("a relay link on a fresh device names the relay in the join sheet", async () => {
+  const host = document.getElementById("overlays");
+  const saved = { gen: state.gen, circles: state.circles, joining: state.joining, demo: state.demo, locked: state.locked };
+  try {
+    Object.assign(state, { gen: null, circles: [], joining: null, demo: false, locked: false });
+    host.children.length = 0;
+    internals.promptJoin(await relayInvite("https://relay.example.org"));
+    assert.ok(findTestid(host, "join-sheet"), "the join sheet opens");
+    const note = findTestid(host, "join-relay-note");
+    assert.ok(note && note.textContent.includes("relay.example.org"), "and says which relay it will use");
+  } finally {
+    host.children.length = 0;
+    Object.assign(state, saved);
+  }
+});
+
+test("adopting a relay saves it and moves this run onto it", async () => {
+  const savedRelay = state.relay;
+  try {
+    await internals.adoptRelay("https://relay.example.org");
+    assert.equal(state.relay, "https://relay.example.org");
+    assert.equal(await dbGet("relay"), "https://relay.example.org");
+    assert.equal(envMod.getApiBase(), "https://relay.example.org");
+  } finally {
+    state.relay = savedRelay;
+    await dbDel("relay");
+    envMod.setApiBase(null);
+  }
+});
+
+test("a fresh device switches relays before its join request goes out", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const src = await readFile(new URL("../app/js/main.js", import.meta.url), "utf8");
+  const body = src.slice(src.indexOf("function promptJoin("), src.indexOf("async function adoptRelay("));
+  const adopt = body.indexOf('if (relayVerdict === "adopt") await adoptRelay(invite.relay);');
+  const send = body.indexOf("await joinWithInvite(invite, p);");
+  assert.ok(adopt > 0 && send > adopt, "adoptRelay runs before joinWithInvite");
+});
+
