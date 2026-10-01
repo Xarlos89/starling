@@ -9,7 +9,8 @@ import { readFileSync } from "node:fs";
 const KT = "android/app/src/main/kotlin/app/starlingmap/";
 const KEYS = ["webview_title", "webview_too_old", "webview_missing", "android9_title", "android9_body"];
 
-const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
+// Windows checkouts carry CRLF, and these checks match on line ends.
+const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8").replace(/\r\n/g, "\n");
 const RES = "android/app/src/main/res/";
 
 test("the build installs on Android 9", () => {

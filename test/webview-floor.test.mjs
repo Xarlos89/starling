@@ -7,8 +7,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = new URL("..", import.meta.url).pathname;
+const root = fileURLToPath(new URL("..", import.meta.url));
 const MIN = Number(
   readFileSync(join(root, "android/app/src/main/kotlin/app/starlingmap/SystemCheck.kt"), "utf8").match(/const val MIN_WEBVIEW = (\d+)/)[1],
 );
