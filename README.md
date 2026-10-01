@@ -310,11 +310,13 @@ instead of opening.
 
 - An independent security review. Nothing else on this list matters as much;
   see [docs/AUDIT.md](docs/AUDIT.md) for where to start.
-- More languages. The translation layer is live and Spanish ships with the
-  app; `node tools/extract-strings.mjs` prints the full catalog for a new
-  language, and a test holds every catalog to full coverage. RTL layout
-  polish lands with the first RTL translation. Native-speaker review of the
-  shipped Spanish is wanted before anything else.
+- Native-speaker review of the German, French and Brazilian Portuguese
+  catalogs. They ship as first passes; Spanish went through a line by line
+  review (#1) and the other three want the same. One file per language in
+  `app/js/strings-*.js`, English on the left. More languages are welcome:
+  `node tools/extract-strings.mjs` prints the full catalog for a new one, and
+  a test holds every catalog to full coverage. RTL layout polish lands with
+  the first RTL translation.
 - Google Play, still not live.
 - QR scan for safety numbers, alongside the tap-to-enlarge in-person compare
   that exists today.

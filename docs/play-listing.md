@@ -47,8 +47,8 @@ PANIC WIPE
 One action clears everything the app has stored on your device.
 
 APP LOCK
-Optional passcode lock encrypts your circle secret at rest (PBKDF2-SHA-256,
-600k iterations), with fingerprint or face unlock through Android Keystore
+Optional passcode lock encrypts your circle secret at rest, with the passcode stretched by
+Argon2id (64 MiB, three passes), and with fingerprint or face unlock through Android Keystore
 where your device supports it.
 
 SOS AND CHECK-INS

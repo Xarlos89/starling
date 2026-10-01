@@ -5,6 +5,11 @@ All notable changes to Starling are recorded here. Versions follow
 
 ## [Unreleased]
 
+- **German, French and Brazilian Portuguese.** The whole app, the Android
+  notifications and the update-your-WebView screen, under Settings, Language
+  or following the phone's language. These are first passes; Spanish had a
+  native speaker read every line, and the other three want the same, so
+  anything that reads wrong deserves an issue.
 - **Argon2id behind the app lock.** The passcode is stretched with Argon2id
   (64 MiB, three passes) instead of PBKDF2, so every guess costs an attacker
   the memory it costs your phone. The function is the Argon2 reference

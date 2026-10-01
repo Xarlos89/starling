@@ -1,7 +1,7 @@
 // Spanish catalog: normalized English source -> Spanish.
-// First draft machine-authored and developer-reviewed; native-speaker
-// review is welcome and rough edges deserve bug reports. Regenerate the
-// key list with: node tools/extract-strings.mjs
+// Reviewed line by line by a native speaker (issue #1); rough edges still
+// deserve bug reports. Regenerate the key list with:
+// node tools/extract-strings.mjs
 // Missing entries fall back to English by design.
 export const es = {
   "Invite QR code": "Código QR de invitación",
@@ -79,7 +79,6 @@ export const es = {
   "Check the numbers": "Comprueba los números",
   "Check their safety number with them first. Accepting is what lets them see everyone's location.": "Comprueba primero su número de seguridad con ellos. Aceptar es lo que les permite ver la ubicación de todos.",
   "Check {who}'s number": "Comprobar el número de {who}",
-  "Check-in failed. Reconnecting...": "No se pudo avisar. Reconectando...",
   "Checked in": "Avisado",
   "Choose a passcode to lock Starling on this device. There is no reset: if you forget it, you have to erase this device and rejoin from an invite.": "Elige un código de acceso para bloquear Starling en este dispositivo. No hay forma de restablecerlo: si lo olvidas, tienes que borrar este dispositivo y volver a unirte con una invitación.",
   "Circle name": "Nombre del círculo",
@@ -262,7 +261,6 @@ export const es = {
   "SOS active": "SOS activo",
   "SOS armed · Locating...": "SOS armado · Localizando...",
   "SOS armed · Sharing live": "SOS armado · Compartiendo en vivo",
-  "SOS failed to send. Reconnecting...": "No se pudo enviar el SOS. Reconectando...",
   "SOS from {who}": "SOS de {who}",
   "SOS is armed": "El SOS está armado",
   "SOS sent to your circle. Tap the check mark to cancel.": "SOS enviado a tu círculo. Toca la marca de verificación para cancelarlo.",
@@ -560,4 +558,10 @@ export const es = {
   "Starling will use the default relay.": "Starling usará el relay predeterminado.",
   "Only if you run a relay yourself. Everyone in your circle has to use the same one, and the invite links you send carry it.": "Solo si tienes tu propio relay. Todos en tu círculo tienen que usar el mismo, y los enlaces de invitación que envíes lo llevan.",
   "This device could not run the lock's key stretching. Nothing was erased; try again, or free some memory.": "Este dispositivo no pudo ejecutar la derivación de clave del bloqueo. No se ha borrado nada; inténtalo de nuevo o libera algo de memoria.",
+  "Biometric unlock is on.": "El desbloqueo biométrico está activado.",
+  "Status cleared.": "Estado borrado.",
+  "Status set.": "Estado guardado.",
+  "You left the circle.": "Saliste del círculo.",
+  "You left, but this device could not erase everything. Open Starling again to finish clearing it.": "Saliste, pero este dispositivo no pudo borrarlo todo. Vuelve a abrir Starling para terminar de limpiarlo.",
+  "Your device or browser could not set up biometric unlock.": "Tu dispositivo o navegador no pudo configurar el desbloqueo biométrico.",
 };

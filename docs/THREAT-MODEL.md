@@ -337,15 +337,17 @@ than Cloudflare can run their own relay; see the FAQ and
     is not silently indistinguishable from one still running.
 18. **Localization is young.** The app has a translation layer (gettext
     style: English source strings as keys, catalogs shipped with the app,
-    nothing fetched) and ships Spanish as its first translation, selectable
-    in settings or following the system language. Honest caveats: the
-    Spanish was written by the developer's tooling and reviewed, not yet by
-    a native-speaker community, and mistranslated security guidance is
-    worse than English, so rough edges deserve bug reports; the website and
-    long-form docs are still English; and no RTL language ships yet, though
-    the engine and document wiring are RTL-ready. `tools/extract-strings.mjs`
-    regenerates the full catalog for anyone who wants to add a language,
-    and a test refuses any new UI string that Spanish does not cover.
+    nothing fetched) and ships Spanish, German, French and Brazilian
+    Portuguese, selectable in settings or following the system language.
+    Honest caveats: Spanish was reviewed line by line by a native speaker
+    (issue #1); German, French and Portuguese are first passes by the
+    developer and have not had that review yet, and mistranslated security
+    guidance is worse than English, so rough edges deserve bug reports; the
+    website and long-form docs are still English; and no RTL language ships
+    yet, though the engine and document wiring are RTL-ready.
+    `tools/extract-strings.mjs` regenerates the full catalog for anyone who
+    wants to add a language, and a test refuses any new UI string that any
+    shipped catalog does not cover.
 
 ## Emergency beacon
 

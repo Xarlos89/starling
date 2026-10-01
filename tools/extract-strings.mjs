@@ -3,7 +3,7 @@
 // flow through the el()/btn()/toast()/overlay-title chokepoints, and the
 // vocabulary tables (chips, help statuses). Prints one JSON object with
 // every key mapped to "" so a translator can fill a new catalog, and is the
-// same list the catalog test holds Spanish to.
+// same list the catalog test holds every shipped catalog to.
 //
 // Run: node tools/extract-strings.mjs [--keys]
 import { readFileSync } from "node:fs";
@@ -42,7 +42,12 @@ for (const f of JS_FILES) {
     if (m[2]) add(unq(m[2]));
   }
   for (const m of src.matchAll(/\btoast\(\s*\n?\s*"((?:[^"\\]|\\.)+)"/g)) add(unq(m[1]));
-  for (const m of src.matchAll(/\b(?:title|text|label|note|intro|cta|placeholder|lead|msg)\s*:\s*"((?:[^"\\]|\\.)+)"/g)) add(unq(m[1]));
+  // toast(cond ? "a" : "b"): both arms are user copy.
+  for (const m of src.matchAll(/\btoast\(\s*\n?\s*[^"()]*?\?\s*"((?:[^"\\]|\\.)+)"\s*:\s*"((?:[^"\\]|\\.)+)"/g)) {
+    add(unq(m[1]));
+    add(unq(m[2]));
+  }
+  for (const m of src.matchAll(/\b(?:title|text|label|note|intro|cta|placeholder|lead|msg|stKey)\s*:\s*"((?:[^"\\]|\\.)+)"/g)) add(unq(m[1]));
   // Vocabulary tables.
   for (const m of src.matchAll(/\b(?:CHIP_TEXT|STATUS_LINE)\s*=\s*\{([^}]+)\}/g)) {
     for (const v of m[1].matchAll(/"((?:[^"\\]|\\.)+)"/g)) add(unq(v[1]));

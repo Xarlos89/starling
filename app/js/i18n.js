@@ -9,8 +9,11 @@
 // with the app like everything else.
 
 import { es } from "./strings-es.js";
+import { de } from "./strings-de.js";
+import { fr } from "./strings-fr.js";
+import { pt } from "./strings-pt.js";
 
-const CATALOGS = { es };
+const CATALOGS = { es, de, fr, pt };
 
 // Direction by locale, for the day an RTL catalog lands. The engine and the
 // document wiring are ready for it; the CSS keeps earning it separately.
@@ -20,6 +23,9 @@ export const LOCALE_CHOICES = [
   { id: "auto", label: "Auto" },
   { id: "en", label: "English" },
   { id: "es", label: "Español" },
+  { id: "de", label: "Deutsch" },
+  { id: "fr", label: "Français" },
+  { id: "pt", label: "Português (Brasil)" },
 ];
 
 let active = null; // null means English source text passes through
