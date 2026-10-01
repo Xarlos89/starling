@@ -5,12 +5,13 @@ All notable changes to Starling are recorded here. Versions follow
 
 ## [0.15.1]
 
-Your own server can tell your phone apart.
+A tracker ID for your own server.
 
-- **Tracker ID for your own server.** Settings, Sharing, Your own server takes
-  an optional tracker ID, sent as `tid` with each position. colota-forwarder
-  skips a target set to `FILTER_TID` unless the `tid` matches, so Starling's
-  points never reached Reitti or Home Assistant behind one (#10).
+- You can now give your phone a tracker ID under Settings, Sharing, Your own
+  server. Starling sends it as `tid` with every position. If colota-forwarder
+  has a target set to `FILTER_TID`, it drops any point without a matching
+  `tid`, which is why Starling's points never got to Reitti or Home Assistant
+  (#10).
 
 ## [0.15.0]
 
