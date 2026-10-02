@@ -180,7 +180,7 @@ first-class target rather than an afterthought:
 - Install paths that do not touch Google: F-Droid
   (<https://f-droid.org/packages/app.starlingmap/>, the same developer-signed
   APK after its reproducible-build check), or add it to Tern
-  (<https://github.com/munzzyy/tern>), which follows the GitHub releases
+  (<https://tern.munzzyy.dev>), which follows the GitHub releases
   page; every release carries a stable `starling.apk` asset name for that.
 - GrapheneOS's per-app Network and Sensors toggles degrade the app the way
   you would hope: no network means the poller backs off and the Off-grid

@@ -289,7 +289,7 @@ Orbot support. See [docs/ANDROID.md](docs/ANDROID.md) for building it,
 [docs/fdroid/](docs/fdroid) for the F-Droid metadata.
 
 A signed APK ships with every [release](https://github.com/munzzyy/starling/releases),
-with a stable `starling.apk` name that [Tern](https://github.com/munzzyy/tern) can track. The app has no
+with a stable `starling.apk` name that [Tern](https://tern.munzzyy.dev) can track. The app has no
 Google services dependency at all (plain `LocationManager`, no Firebase, no
 push), so it runs as-is on GrapheneOS and other de-googled Android builds;
 testing happens on the no-GMS AOSP emulator image for exactly that
