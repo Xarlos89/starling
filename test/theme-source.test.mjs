@@ -1,8 +1,4 @@
-// Theme Auto in the wrapper. WebView takes prefers-color-scheme from the
-// isLightTheme of the context it is built on, and an application context
-// carries the platform's default light theme, so Auto never went dark. The
-// Kotlin and the resources are read as source; the emulator check is in the
-// commit that added this.
+// A WebView built on the application context gets Android's default light theme, so Auto never went dark.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";

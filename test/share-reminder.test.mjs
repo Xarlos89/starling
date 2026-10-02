@@ -1,8 +1,4 @@
-// "Remind me if sharing stays off" (munzzyy/starling#6): a stop the person
-// chose asks the wrapper for a reminder after the chosen time, and anything
-// that starts a share or wipes the phone takes it back. The alarm and the
-// notification are Kotlin (ShareReminder.kt); this holds the page to calling
-// them only when it should.
+// munzzyy/starling#6: only a stop the person chose asks for a reminder, and a share or a wipe takes it back.
 import test from "node:test";
 import assert from "node:assert/strict";
 

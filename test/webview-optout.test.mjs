@@ -1,6 +1,4 @@
-// The README promises no analytics and no third party requests. On a phone
-// with Google's WebView, Safe Browsing lookups and WebView usage metrics are
-// on unless the app opts out, so the manifest and PageHost both say no.
+// Google's WebView does Safe Browsing lookups and usage metrics unless the app opts out.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";

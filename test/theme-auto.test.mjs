@@ -1,5 +1,4 @@
-// Theme Auto in the wrapper follows the phone through the bridge, because the
-// WebView's own prefers-color-scheme is fixed when the WebView is built.
+// The wrapper's WebView fixes prefers-color-scheme when it is built, so Auto asks the bridge.
 import test from "node:test";
 import assert from "node:assert/strict";
 

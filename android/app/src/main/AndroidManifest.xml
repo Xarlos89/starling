@@ -41,9 +41,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Starling">
 
-        <!-- The page loads bundled files and map tiles, nothing to check
-             against Google's lists, and nothing about its use goes to Google
-             either. PageHost turns Safe Browsing off in code too. -->
+        <!-- Bundled files and map tiles only: nothing for Safe Browsing to check, no metrics for Google. -->
         <meta-data
             android:name="android.webkit.WebView.EnableSafeBrowsing"
             android:value="false" />

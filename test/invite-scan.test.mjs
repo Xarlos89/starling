@@ -1,7 +1,4 @@
-// Scanning an invite inside the app. The code goes through the real encoder
-// and the in-house decoder, then the same reading the paste field uses, and
-// only an invite reaches the join handler. A safety number code or random
-// text is turned away with words of its own and the camera keeps looking.
+// Only an invite read by the real decoder reaches the join handler; anything else keeps the camera looking.
 import test from "node:test";
 import assert from "node:assert/strict";
 

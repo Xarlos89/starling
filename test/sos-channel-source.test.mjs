@@ -1,7 +1,4 @@
-// An SOS has to reach a partner whose phone is in Do Not Disturb, which on
-// Android only alarms do by default. Kotlin, so this reads the source the way
-// share-reliability-source.test.mjs does; the emulator check is in the
-// commit that added it.
+// Kotlin read as source; the emulator check for Do Not Disturb is in the commit that added it.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";

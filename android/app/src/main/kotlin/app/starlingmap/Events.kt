@@ -84,10 +84,10 @@ object Events {
         if (urgent) {
             // A ringtone, not the default notification ding, and a pattern
             // that keeps pulsing: this is the one channel in the app that
-            // must not read like every other alert. Alarm usage is what lets
-            // it through Do Not Disturb, and it plays at the alarm volume.
+            // must not read like every other alert.
             val sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
             val attrs = AudioAttributes.Builder()
+                // Alarm usage gets it through Do Not Disturb, at the alarm volume.
                 .setUsage(AudioAttributes.USAGE_ALARM)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build()

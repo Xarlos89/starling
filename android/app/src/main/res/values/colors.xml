@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Mirrors the web app's light design tokens (css/tokens.css);
-         values-night has the dark ones. -->
+    <!-- The web app's light design tokens (css/tokens.css); values-night has the dark ones. -->
     <color name="starling_bg">#f4f6fb</color>
     <color name="starling_fg">#101522</color>
     <color name="starling_fg_dim">#4a5568</color>

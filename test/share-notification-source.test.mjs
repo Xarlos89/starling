@@ -1,7 +1,4 @@
-// Android 14 lets a person swipe a foreground service's notification away on
-// an unlocked phone, and the share runs on with nothing in the shade to say
-// so. The service puts it straight back while the share is live. Kotlin, so
-// this reads the source; the emulator check is in the commit that added it.
+// Kotlin read as source; the emulator check for the swiped notification is in the commit that added it.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";

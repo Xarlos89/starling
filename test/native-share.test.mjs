@@ -1,6 +1,4 @@
-// Share on an invite or a help link. Android System WebView has no
-// navigator.share, so in the wrapper the bridge opens the system share sheet,
-// and the link never touches the clipboard on that path.
+// Android System WebView has no navigator.share, so the wrapper's bridge opens the share sheet instead.
 import test from "node:test";
 import assert from "node:assert/strict";
 
