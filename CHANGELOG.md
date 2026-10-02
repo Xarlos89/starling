@@ -87,6 +87,11 @@ All notable changes to Starling are recorded here. Versions follow
   alarms are allowed, which is the default, and it plays at the alarm volume.
   To let it through total silence too, open Settings and use the button under
   Places and alerts. The notification text is the same generic line as before.
+- **The sharing notification comes back.** Android 14 and later let the
+  "Sharing with your circle" notification be swiped away on an unlocked phone
+  while the share kept running. Anyone holding the phone for a minute could
+  hide that it was sharing. Starling puts it straight back now for as long as
+  the share runs.
 
 ## [0.15.2]
 

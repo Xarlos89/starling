@@ -40,6 +40,7 @@ class LocationService : Service(), LocationListener {
         private const val NOTIF_ID = 1
         private const val ACTION_STOP = "app.starlingmap.STOP_SHARE"
         private const val ACTION_TICK = "app.starlingmap.SHARE_TICK"
+        private const val ACTION_REPOST = "app.starlingmap.REPOST_SHARE_NOTIFICATION"
         private const val MIN_TIME_MS = 3000L
         private const val MIN_DIST_M = 5f
         // A phone lying still passes no distance filter, so without this the
@@ -221,6 +222,19 @@ class LocationService : Service(), LocationListener {
             sink?.invoke(JSONObject().put("stopped", true).toString())
             postShareEnded("notif")
             stopSelf()
+            return START_NOT_STICKY
+        }
+        if (intent?.action == ACTION_REPOST) {
+            // Android 14 and up let a person swipe the notification away while the share runs on.
+            if (live) {
+                runCatching {
+                    (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(NOTIF_ID, buildNotification())
+                }
+            } else if (!running) {
+                // Started fresh by a swipe that raced the end of the share: leave no trace.
+                stopAsked = true
+                stopSelf(startId)
+            }
             return START_NOT_STICKY
         }
         if (!running) {
@@ -458,6 +472,12 @@ class LocationService : Service(), LocationListener {
             Intent(this, LocationService::class.java).setAction(ACTION_STOP),
             PendingIntent.FLAG_IMMUTABLE,
         )
+        val swiped = PendingIntent.getService(
+            this,
+            2,
+            Intent(this, LocationService::class.java).setAction(ACTION_REPOST),
+            PendingIntent.FLAG_IMMUTABLE,
+        )
         val stopAction = Notification.Action.Builder(null, getString(R.string.notif_stop), stop).apply {
             // Android 12+ only, see THREAT-MODEL.md for the pre-12 gap.
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) setAuthenticationRequired(true)
@@ -483,6 +503,7 @@ class LocationService : Service(), LocationListener {
             .setContentText(text)
             .setContentIntent(open)
             .setOngoing(true)
+            .setDeleteIntent(swiped)
             .setOnlyAlertOnce(true)
             .setVisibility(Notification.VISIBILITY_PRIVATE)
             .setPublicVersion(publicVersion)

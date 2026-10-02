@@ -232,6 +232,16 @@ before. The sound of a channel is fixed once the channel exists, so the alarm
 channel has a new id (`events_sos_alarm`). The first SOS deletes the old
 `events_sos` channel and the panic wipe deletes both.
 
+### The sharing notification comes back
+
+Android 14 and later let anyone holding an unlocked phone swipe a foreground
+service notification away. The service keeps running without it. For a
+location share that means a phone that is sharing with nothing in the shade
+to say so and no Stop button in view. The notification now carries a delete
+intent back to `LocationService`. While the share is live the service posts
+the notification again under the same id. Once the share has ended it does
+nothing. Stop and the lock screen work as before.
+
 ## Sharing with the screen off
 
 Everything that seals and posts a position runs in the page, and a WebView

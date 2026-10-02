@@ -329,13 +329,16 @@ than Cloudflare can run their own relay; see the FAQ and
     opens that channel's system page for anyone who wants it through total
     silence as well.
 17. **The sharing notification itself is a leak Android requires.** While
-    you share, Android requires a visible, un-dismissable foreground
-    notification ("Sharing with your circle") for as long as the location
-    service runs; there is no code path that removes this and still keeps
-    sharing working. Anyone holding the phone, locked or not, learns from it
-    alone that Starling is installed and is transmitting your position right
-    now. That notification also carries a Stop button. On Android 12 and
-    up, tapping it from a locked screen requires the device to be unlocked
+    you share, Android requires a visible foreground notification ("Sharing
+    with your circle") for as long as the location service runs; there is no
+    code path that removes this and still keeps sharing working. Android 14
+    and later let a person swipe it away on an unlocked phone while the
+    service keeps running, so Starling puts it straight back for as long as
+    the share runs: hiding that a phone is sharing takes ending the share.
+    Anyone holding the phone, locked or not, learns from it alone that
+    Starling is installed and is transmitting your position right now.
+    That notification also carries a Stop button. On Android 12 and up,
+    tapping it from a locked screen requires the device to be unlocked
     first (`Notification.Action.Builder.setAuthenticationRequired`); on
     Android 11 and below there is no such gate, and Stop fires straight from
     the lock screen. Either way, since this fix, ending a share by tapping
@@ -518,10 +521,11 @@ and why none of it weakens the core claim (the relay never sees a position).
   same WebAssembly module as everywhere else) is unchanged and remains the
   guaranteed unlock method.
 - **Foreground service visibility.** Background location sharing runs as an
-  Android foreground service, which Android requires to show a persistent,
-  non-dismissible notification the entire time it runs. This is a design
-  constraint the app leans into rather than works around: sharing is never
-  silent, matching the same "always show a live sharing indicator"
+  Android foreground service, which Android requires to show a notification
+  the entire time it runs. Android 14 and later let that notification be
+  swiped away on an unlocked phone; Starling posts it again at once while
+  the share runs. This is a design constraint the app leans into rather than
+  works around: sharing is never silent, matching the same "always show a live sharing indicator"
   principle from the web app's design consequences above. The service
   requests fine and coarse location while-in-use only; it does not request
   `ACCESS_BACKGROUND_LOCATION`, and it only starts while the app has

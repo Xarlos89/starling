@@ -162,9 +162,10 @@ switch apps. It runs only while the user has explicitly turned sharing on,
 never in the background without that action, and never requests
 `ACCESS_BACKGROUND_LOCATION`.
 
-What the user sees: a persistent, non-dismissible notification for the
-entire time sharing is active, stating that Starling is sharing the user's
-location. Tapping it returns to the app; there is a stop action to end
+What the user sees: a persistent notification for the entire time sharing
+is active. It states that Starling is sharing the location of the user. On
+Android 14 and later it can be swiped away, and the app posts it again at
+once. Tapping it returns to the app; there is a stop action to end
 sharing immediately.
 
 Impact if interrupted: if the OS kills the foreground service (low memory,

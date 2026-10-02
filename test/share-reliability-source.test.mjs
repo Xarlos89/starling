@@ -145,8 +145,9 @@ test("a service Android stops on its own is reported, and every stop this app ma
   assert.match(destroy, /if \(!byUs\) \{[\s\S]*?put\("route", "system"\)[\s\S]*?postShareEnded\("system"\)/);
   assert.match(fn(svc, "stop"), /stopAsked = true/);
   const start = fn(svc, "onStartCommand");
-  // The notification's Stop, and a startForeground the platform refused.
-  assert.equal((start.match(/stopAsked = true/g) || []).length, 2);
+  // The notification's Stop, a startForeground the platform refused, and a
+  // swiped notification that started the service after its share had ended.
+  assert.equal((start.match(/stopAsked = true/g) || []).length, 3);
   assert.match(fn(svc, "noProvider"), /stopAsked = true\s*sink\?\.invoke\(JSONObject\(\)\.put\("error", "no location provider"\)/);
   assert.match(fn(svc, "onTaskRemoved"), /stopAsked = true\s*postShareEnded\("swipe"\)/);
 });
