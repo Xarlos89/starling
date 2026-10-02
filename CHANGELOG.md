@@ -100,9 +100,10 @@ All notable changes to Starling are recorded here. Versions follow
   white bar.
 - **Remind me to share again.** Settings, Sharing on Android has "Remind me
   if sharing stays off" (#6). Pick 1, 4 or 12 hours and a stop you made
-  yourself leaves a notification on this phone after that long, unless you
-  are sharing again by then. It says only that sharing is off and nothing
-  goes to your circle. The default is Never.
+  yourself leaves a notification on this phone after that long, or up to 10
+  minutes later, unless you are sharing again by then. It says only that
+  sharing is off and nothing goes to your circle. The default is Never.
+  Please say on #6 if it never shows up on your phone.
 - **No Safe Browsing lookups or WebView metrics.** On phones with Google's
   WebView the app could have its page checked by Safe Browsing and its use
   counted in WebView metrics. Both are off now. The autofill lookup some

@@ -220,42 +220,51 @@ five seconds. The image's own WebView is 66, which gets the update screen.
 
 ### An SOS rings through Do Not Disturb
 
-An SOS from your circle posts on its own "Emergency alerts" channel. It plays
-the ringtone with a pulsing vibration, and it goes out as an alarm: alarm
-audio usage and the alarm category. Do Not Disturb holds ordinary
-notifications back and lets alarms through by default. So an SOS at 2 am
-still reaches a phone in Do Not Disturb, and it plays at the alarm volume.
-Total silence still holds it back. Settings has a button under Places and
-alerts that opens the channel page in system settings, where "Override Do Not
-Disturb" lets it through even then. The text is the same generic line as
-before. The sound of a channel is fixed once the channel exists, so the alarm
-channel has a new id (`events_sos_alarm`). The first SOS deletes the old
-`events_sos` channel and the panic wipe deletes both.
+An SOS from your circle posts on its own "Emergency alerts" channel, with the
+ringtone and a vibration that keeps pulsing. It goes out as an alarm: alarm
+audio usage and the alarm category. Do Not Disturb lets alarms through unless
+the person turned that off, so an SOS at 2 am reaches a phone in Do Not
+Disturb and plays at the alarm volume. Total silence still stops it. For that
+case Settings has a button under Places and alerts that opens the channel's
+system page, where "Override Do Not Disturb" lets it through anyway. The text
+is the same generic line as before. Android fixes a channel's sound when the
+channel is created, so the alarm version needed a new id, `events_sos_alarm`.
+The first SOS deletes the old `events_sos` channel and the panic wipe deletes
+both.
 
 ### The sharing notification comes back
 
-Android 14 and later let anyone holding an unlocked phone swipe a foreground
-service notification away. The service keeps running without it. For a
-location share that means a phone that is sharing with nothing in the shade
-to say so and no Stop button in view. The notification now carries a delete
-intent back to `LocationService`. While the share is live the service posts
-the notification again under the same id. Once the share has ended it does
-nothing. Stop and the lock screen work as before.
+On Android 14 and later anyone holding an unlocked phone can swipe a
+foreground service notification away, and the service keeps running without
+it. For a location share that is a phone sharing with nothing in the shade to
+show it and no Stop button in reach. The notification now carries a delete
+intent that points back at `LocationService`. If the share is still live, the
+service posts it again under the same id. If the share already ended, it does
+nothing. Stop and the lock screen behave as before.
 
 ### A reminder when sharing stays off
 
-Settings, Sharing has "Remind me if sharing stays off" (#6). The choices are
-Never, 1 h, 4 h and 12 h. Never is the default. A stop you chose yourself
-sets an alarm for that long. That covers the switch and Stop on the
-notification. It also covers a timed share that ran out and a circle switch.
-A stop that Android or the app lock made sets nothing, since that share comes
-back by itself. The events channel shows "Sharing is off. Open Starling to
-share again." when the alarm goes off and no share is running. It says nothing
-about a circle or a person. Starting a share or a panic wipe cancels the
-alarm and takes down a reminder already showing. The alarm is windowed and
-not exact. It needs no exact alarm permission and can arrive up to 10
-minutes late, or later while the phone sits in Doze. A phone restart drops
-it because the app does not listen for boot.
+Settings, Sharing has "Remind me if sharing stays off" (#6): Never, 1 h, 4 h
+or 12 h, and Never is the default. Turning sharing off yourself sets an alarm
+for that long. So do Stop on the notification, a timed share that runs out
+and a circle switch. A stop that came from Android or the app lock sets
+nothing, because that share comes back by itself. If no share is running when
+the alarm goes off, the events channel shows "Sharing is off. Open Starling
+to share again." Nothing in it names a circle or a person. Starting a share
+or a panic wipe cancels the alarm and takes down a reminder that is already
+showing.
+
+The alarm is inexact because an exact one needs its own permission. On Android
+12 and up an alarm window is at least 10 minutes, and the emulator delivered
+at the end of it, so expect a 1 h reminder about 70 minutes after the stop. A
+plain inexact alarm is allowed to run 75% late. On the Android 16 emulator
+that came to 45 minutes on 1 h and an hour, the cap, on 12 h, so the hour
+choices use the window. Under about 13 minutes the plain alarm is the tighter
+one. Settings never offers that, but a debug build can ask the bridge for 60
+seconds, and that reminder lands inside 2 minutes. Doze can hold either kind
+back, and a restart drops it since the app does not listen for boot. If the
+reminder never turns up on your phone, please say so on #6 with the phone
+model.
 
 ## Sharing with the screen off
 

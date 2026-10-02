@@ -7,12 +7,11 @@ import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
 
-// Windowed, not exact: no exact-alarm permission, and a plain inexact alarm may run 75% late.
+// Inexact either way: a plain alarm may run 75% late, and Android 12 and up stretch a window to 10 minutes.
 object ShareReminder {
     const val TAG = "remind"
     private const val MIN_MS = 60_000L
     private const val MAX_MS = 24 * 3_600_000L
-    // The shortest window Android 12 and up allow without that permission.
     private const val WINDOW_MS = 10 * 60_000L
 
     private fun pending(ctx: Context): PendingIntent = PendingIntent.getBroadcast(
@@ -24,8 +23,15 @@ object ShareReminder {
 
     fun schedule(ctx: Context, ms: Long) {
         val am = ctx.getSystemService(AlarmManager::class.java) ?: return
-        val at = SystemClock.elapsedRealtime() + ms.coerceIn(MIN_MS, MAX_MS)
-        runCatching { am.setWindow(AlarmManager.ELAPSED_REALTIME_WAKEUP, at, WINDOW_MS, pending(ctx)) }
+        val delay = ms.coerceIn(MIN_MS, MAX_MS)
+        val at = SystemClock.elapsedRealtime() + delay
+        runCatching {
+            if (delay / 4 * 3 < WINDOW_MS) {
+                am.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, at, pending(ctx))
+            } else {
+                am.setWindow(AlarmManager.ELAPSED_REALTIME_WAKEUP, at, WINDOW_MS, pending(ctx))
+            }
+        }
     }
 
     // Also takes down a reminder already showing: it is not true once a share runs.

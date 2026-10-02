@@ -108,7 +108,12 @@ test("the Kotlin side: an inexact alarm, a private receiver, and silence while a
   assert.doesNotMatch(manifest, /EXACT_ALARM/);
   assert.match(manifest, /<receiver\s+android:name="\.ShareReminderReceiver"\s+android:exported="false"\s*\/>/);
   const reminder = kt("ShareReminder.kt");
-  assert.match(reminder, /am\.setWindow\(AlarmManager\.ELAPSED_REALTIME_WAKEUP, at, WINDOW_MS, pending\(ctx\)\)/);
+  // A short delay takes the plain alarm, whose 75% runs late by less than the 10 minute window.
+  assert.match(
+    reminder,
+    /if \(delay \/ 4 \* 3 < WINDOW_MS\) \{\s*am\.set\(AlarmManager\.ELAPSED_REALTIME_WAKEUP, at, pending\(ctx\)\)\s*\} else \{\s*am\.setWindow\(AlarmManager\.ELAPSED_REALTIME_WAKEUP, at, WINDOW_MS, pending\(ctx\)\)/,
+  );
+  assert.match(reminder, /WINDOW_MS = 10 \* 60_000L/);
   assert.doesNotMatch(reminder, /setExact|setAlarmClock/);
   assert.match(reminder, /override fun onReceive\(context: Context, intent: Intent\) \{\s*if \(LocationService\.running\) return\s*Events\.postShareOff\(context\)/);
   assert.match(kt("Events.kt"), /fun postShareOff\(ctx: Context\) =\s*show\(ctx, R\.string\.notif_remind_title, R\.string\.notif_remind_text, ShareReminder\.TAG, false\)/);
