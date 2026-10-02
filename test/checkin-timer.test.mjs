@@ -160,7 +160,7 @@ test("stopping sharing keeps the timer: the bye still carries due", async () => 
   }
 });
 
-test("the roster keeps due from the last message and drops one outside (ts, ts+24h]", async () => {
+test("the roster keeps due from the last message and drops one more than 24h from its ts", async () => {
   const t0 = Date.now() - 60_000;
   const gen = await openGeneration({ seed: new Uint8Array(newSeed()), g: 0, e0: epochAt(t0) });
   const roster = createRoster({ channelId: gen.channelId, ratchet: gen.ratchet, selfId: "f".repeat(32), pinned: new Map() });
@@ -174,11 +174,13 @@ test("the roster keeps due from the last message and drops one outside (ts, ts+2
   assert.equal(await feed({ t: "loc", due: t0 + 30 * 60_000 }, t0), t0 + 30 * 60_000);
   assert.equal(await feed({ t: "bye", due: t0 + 30 * 60_000 }, t0 + 1), t0 + 30 * 60_000, "a bye keeps it");
   assert.equal(await feed({ t: "loc" }, t0 + 2), null, "a message without due clears it");
-  assert.equal(await feed({ t: "loc", due: t0 + 3 }, t0 + 3), null, "due equal to ts is not a deadline");
+  assert.equal(await feed({ t: "loc", due: t0 + 3 }, t0 + 3), t0 + 3, "due equal to ts is a deadline");
   assert.equal(await feed({ t: "loc", due: t0 + 4 + day }, t0 + 4), t0 + 4 + day, "exactly a day ahead is allowed");
-  assert.equal(await feed({ t: "loc", due: t0 + 5 + day + 1 }, t0 + 5), null, "past a day is junk");
+  assert.equal(await feed({ t: "loc", due: t0 + 5 + day + 1 }, t0 + 5), null, "past a day ahead is junk");
   assert.equal(await feed({ t: "loc", due: "soon" }, t0 + 6), null);
-  assert.equal(await feed({ t: "loc", due: t0 - 1000 }, t0 + 7), null, "a deadline before the message is junk");
+  assert.equal(await feed({ t: "loc", due: t0 - 1000 }, t0 + 7), t0 - 1000, "a passed deadline stays");
+  assert.equal(await feed({ t: "loc", due: t0 + 8 - day }, t0 + 8), t0 + 8 - day, "exactly a day behind is allowed");
+  assert.equal(await feed({ t: "loc", due: t0 + 9 - day - 1 }, t0 + 9), null, "past a day behind is junk");
 });
 
 test("a member is overdue only after due plus the grace", () => {
@@ -239,6 +241,65 @@ test("an overdue member fires one urgent notification and one card, and a check-
     internals.checkAlerts();
     assert.ok(calls.some((c) => c[0] === "cancel" && c[1] === tag), "the check-in takes the notification back down");
     assert.equal(card().length, 0, "and the card goes with it");
+  } finally {
+    Date.now = realNow;
+    globalThis.StarlingNative = { ...NATIVE };
+  }
+});
+
+test("a phone still posting after its deadline is overdue on every receiver until it checks in", async () => {
+  await sharing();
+  const posts = capturePosts();
+  const realNow = Date.now;
+  try {
+    await internals.startCheckinTimer(1);
+    await settle();
+    const own = internals.checkinDue();
+    Date.now = () => own + 15_000;
+    await internals.sendLoc(true);
+    await settle();
+    Date.now = realNow;
+    const late = await openOwnPost(posts.at(-1));
+    assert.ok(late.ts > own, "this post went out after the deadline");
+    assert.equal(late.due, own, "and still carries it");
+  } finally {
+    Date.now = realNow;
+    harness.onFetch(null);
+    await internals.doCheckin();
+    await settle();
+    if (state.sharing) await internals.setSharing(false);
+  }
+
+  const calls = [];
+  globalThis.StarlingNative = {
+    ...NATIVE,
+    windowShown: () => false,
+    notify: (...a) => calls.push(["notify", ...a]),
+    cancelNotify: (tag) => calls.push(["cancel", tag]),
+  };
+  const who = await generateIdentity();
+  const tag = `due-${who.memberId}`;
+  const card = () => internals.alertItems().filter((i) => i.id === `due:${who.memberId}`);
+  const t0 = Date.now();
+  const due = t0 + 60_000;
+  const post = async (fields, ts) => {
+    await internals.roster().ingest([await memberEntry(state.gen, who, { name: "Juno", lat: 1, lon: 2, ...fields }, ts)], ts);
+    Date.now = () => ts;
+    internals.checkAlerts();
+  };
+  try {
+    let ts = t0;
+    for (; ts <= due + DUE_GRACE_MS + 45_000; ts += 15_000) await post({ t: "loc", due }, ts);
+    await post({ t: "bye", due }, ts);
+    assert.equal(internals.roster().get(who.memberId).due, due, "the receiver keeps a deadline the posts went past");
+    assert.equal(displayStatus(internals.roster().get(who.memberId), ts), "overdue");
+    assert.equal(calls.filter((c) => c[0] === "notify" && c[3] === tag).length, 1, "told once, while the posts kept coming");
+    assert.equal(calls.some((c) => c[0] === "cancel" && c[1] === tag), false, "and no later post took it back");
+    assert.equal(card().length, 1);
+
+    await post({ t: "checkin" }, ts + 15_000);
+    assert.ok(calls.some((c) => c[0] === "cancel" && c[1] === tag), "the check-in takes it down");
+    assert.equal(card().length, 0);
   } finally {
     Date.now = realNow;
     globalThis.StarlingNative = { ...NATIVE };
