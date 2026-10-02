@@ -4,6 +4,11 @@
 // with: node tools/extract-strings.mjs
 // Missing entries fall back to English by design.
 export const de = {
+  "Scan a code": "Code scannen",
+  "Scan an invite code": "Einladungscode scannen",
+  "Point the camera at the invite code on their screen.": "Richte die Kamera auf den Einladungscode auf dem anderen Bildschirm.",
+  "That is a safety number code, not an invite.": "Das ist ein Code für eine Sicherheitsnummer, keine Einladung.",
+  "That is not a Starling invite code.": "Das ist kein Starling-Einladungscode.",
   "Remind me if sharing stays off": "Erinnere mich, wenn Teilen aus bleibt",
   "If you stop sharing and do not turn it back on, this phone shows a notification after that long. Nothing goes to your circle.": "Wenn du das Teilen beendest und nicht wieder einschaltest, zeigt dieses Handy nach dieser Zeit eine Benachrichtigung. An deinen Kreis geht nichts.",
   "Never": "Nie",

@@ -8,10 +8,13 @@
 // the verified mark, the mark lands on the member's row, every camera track
 // is ended afterwards, the page's CSP let the stream play as it stands, and
 // nothing reaches the relay. Then the denied path (getUserMedia rejects)
-// shows the settings hint, and the bare web page keeps the scanner off.
+// shows the settings hint, the invite scanner turns the safety code away and
+// keeps looking, and the bare web page keeps the scanner off. Last, a second
+// Chromium whose camera shows Ana's invite starts from the first screen, scans
+// it from "I have an invite" and lands on the join request.
 //
 // Run from the repo root:  node test/e2e_qrscan.mjs
-// Ports: 8935 (http), 9336 (devtools). Everything started here is killed.
+// Ports: 8935 (http), 9336 and 9337 (devtools). Everything started here is killed.
 import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -27,6 +30,7 @@ import { b64uEncode, safetyNumber } from "../app/js/wire.js";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const HTTP_PORT = 8935;
 const CDP_PORT = 9336;
+const CDP_PORT_2 = 9337;
 const BASE = `http://127.0.0.1:${HTTP_PORT}`;
 
 const fails = [];
@@ -138,8 +142,8 @@ function connect(wsUrl) {
   };
 }
 
-async function newTab() {
-  const res = await fetch(`http://127.0.0.1:${CDP_PORT}/json/new?about:blank`, { method: "PUT" });
+async function newTab(port = CDP_PORT) {
+  const res = await fetch(`http://127.0.0.1:${port}/json/new?about:blank`, { method: "PUT" });
   const tab = await res.json();
   const c = connect(tab.webSocketDebuggerUrl);
   await c.open;
@@ -180,6 +184,7 @@ async function createCircle(c) {
   await waitFor(() => c.evalJs(`!document.querySelector('[data-testid="identity-save"]').disabled`), "save enabled");
   await click(c, '[data-testid="identity-save"]');
   await waitFor(() => c.evalJs(`!!document.querySelector('[data-testid="invite-link"]')?.textContent.includes('#j=')`), "invite sheet", 30000);
+  const link = await text(c, '[data-testid="invite-link"]');
   // Whatever is stacked on top of the map after the save goes, top first.
   await waitFor(async () => {
     const open = await c.evalJs("[...document.querySelectorAll('.ov-wrap')].map((w) => w.querySelector('.ov-panel')?.dataset.testid)");
@@ -188,6 +193,25 @@ async function createCircle(c) {
     await sleep(400);
     return false;
   }, "sheets after the save closed");
+  return link;
+}
+
+function startChromium(port, profile, y4m) {
+  return spawn(
+    "chromium",
+    [
+      "--headless=new",
+      `--remote-debugging-port=${port}`,
+      "--user-data-dir=" + profile,
+      "--no-sandbox",
+      "--disable-gpu",
+      "--use-fake-device-for-media-stream",
+      "--use-fake-ui-for-media-stream",
+      `--use-file-for-fake-video-capture=${y4m}`,
+      "about:blank",
+    ],
+    { stdio: "ignore" },
+  );
 }
 
 async function main() {
@@ -207,21 +231,8 @@ async function main() {
     env: { ...process.env, STARLING_TEST: "1", STARLING_WRAPPER_HEADERS: "1", RATE_POST_MIN: "100000", RATE_GET_MIN: "100000" },
     stdio: "ignore",
   });
-  const chromium = spawn(
-    "chromium",
-    [
-      "--headless=new",
-      `--remote-debugging-port=${CDP_PORT}`,
-      "--user-data-dir=" + profile,
-      "--no-sandbox",
-      "--disable-gpu",
-      "--use-fake-device-for-media-stream",
-      "--use-fake-ui-for-media-stream",
-      `--use-file-for-fake-video-capture=${y4m}`,
-      "about:blank",
-    ],
-    { stdio: "ignore" },
-  );
+  const chromium = startChromium(CDP_PORT, profile, y4m);
+  let chromium2 = null;
   try {
     await waitFor(async () => {
       try {
@@ -238,7 +249,8 @@ async function main() {
     // ------------------------------------------------------- in the app
     const app = await newTab();
     await boot(app, { wrapper: true });
-    await createCircle(app);
+    const inviteLink = await createCircle(app);
+    check("Ana's invite link was on the invite sheet", /#j=/.test(inviteLink || ""), inviteLink);
     const pinnedBo = await app.evalJs(`window.__starlingInternals.addPinned(${JSON.stringify({
       memberId: bo.memberId,
       alg: bo.alg,
@@ -315,6 +327,29 @@ async function main() {
     await waitFor(() => app.evalJs(`!document.querySelector('[data-testid="scan-sheet"]')`), "scan sheet closed");
     check("no stream was asked for on the denied path", await app.evalJs("window.__streams.length === 1 && window.__gumCalls.length === 1 && window.__cameraAsked === 2"));
 
+    // ------------------------------------- the invite scanner, wrong code
+    await app.evalJs("window.__denyCamera = false");
+    await click(app, '[data-testid="circle-open"]');
+    await waitFor(() => shown(app, '[data-testid="circle-join"]'), "circle sheet");
+    await click(app, '[data-testid="circle-join"]');
+    await waitFor(() => shown(app, '[data-testid="paste-scan"]'), "Scan a code on the paste sheet");
+    check("the paste sheet offers Scan a code in the app", await shown(app, '[data-testid="paste-scan"]'));
+    await click(app, '[data-testid="paste-scan"]');
+    await waitFor(() => shown(app, '[data-testid="scan-sheet"]'), "invite scan sheet");
+    check("the invite scanner says what it is for", (await text(app, '[data-testid="scan-sheet"] .ov-title')) === "Scan an invite code");
+    const turnedAway = await waitFor(
+      () => app.evalJs(`document.querySelector('[data-testid="scan-status"]')?.textContent === "That is a safety number code, not an invite."`),
+      "the safety code turned away",
+      20000,
+    ).catch(() => false);
+    check("a safety number code is named, not joined", turnedAway === true, await text(app, '[data-testid="scan-status"]'));
+    await sleep(1000);
+    check("the camera keeps looking after a wrong code", await app.evalJs(`(() => { const v = document.querySelector('[data-testid="scan-sheet"] video'); return !!v && !!v.srcObject && window.__streams.at(-1).getTracks().every((t) => t.readyState === "live"); })()`));
+    check("no join sheet opened for it", !(await shown(app, '[data-testid="join-sheet"]')));
+    await click(app, '[data-testid="scan-sheet"] .ov-close');
+    await waitFor(() => app.evalJs(`!document.querySelector('[data-testid="scan-sheet"]')`), "invite scan sheet closed");
+    check("closing it ends the camera", await app.evalJs(`window.__streams.at(-1).getTracks().every((t) => t.readyState === "ended")`));
+
     const relayGets = await fetch(`${BASE}/debug/dump`).then((r) => r.text()).catch(() => "");
     check("nothing about the scan reached the relay", !relayGets.includes("starling:sn:") && !relayGets.includes(boNumber.replace(/ /g, "")));
     app.close();
@@ -328,9 +363,38 @@ async function main() {
     check("the web page still shows the code", await shown(web, '[data-testid="safety-show-qr"]'));
     check("the web page hides the scanner", !(await shown(web, '[data-testid="safety-scan"]')));
     check("the web page says scanning lives in the app", await shown(web, '[data-testid="safety-scan-note"]'));
+    await web.evalJs(`document.querySelectorAll('.ov-close').forEach((b) => b.click())`);
+    await click(web, '[data-testid="circle-open"]');
+    await waitFor(() => shown(web, '[data-testid="circle-join"]'), "circle sheet on the web");
+    await click(web, '[data-testid="circle-join"]');
+    await waitFor(() => shown(web, '[data-testid="paste-sheet"]'), "paste sheet on the web");
+    check("the web paste sheet has no Scan a code", !(await shown(web, '[data-testid="paste-scan"]')));
     web.close();
+
+    // -------------------------------- a fresh phone scans Ana's invite
+    const y4mInvite = path.join(work, "invite.y4m");
+    const drawnInvite = y4mOf(inviteLink, y4mInvite);
+    console.log(`invite frame: version ${(drawnInvite.modules - 17) / 4} code, ${drawnInvite.size}px of 640x480`);
+    chromium2 = startChromium(CDP_PORT_2, path.join(work, "profile2"), y4mInvite);
+    await waitFor(() => fetch(`http://127.0.0.1:${CDP_PORT_2}/json/version`).then((r) => r.ok).catch(() => false), "second devtools up");
+    const joiner = await newTab(CDP_PORT_2);
+    await boot(joiner, { wrapper: true });
+    await waitFor(() => shown(joiner, '[data-testid="onboarding-join"]'), "I have an invite on the first screen");
+    await click(joiner, '[data-testid="onboarding-join"]');
+    await waitFor(() => shown(joiner, '[data-testid="paste-scan"]'), "Scan a code under I have an invite");
+    await click(joiner, '[data-testid="paste-scan"]');
+    await waitFor(() => shown(joiner, '[data-testid="scan-sheet"]'), "invite scan sheet on the fresh phone");
+    const joinShown = await waitFor(() => shown(joiner, '[data-testid="join-sheet"]'), "join request sheet", 20000).catch(() => false);
+    check("scanning the invite lands on the join request", joinShown === true, await text(joiner, '[data-testid="scan-status"]'));
+    const scanGone = await waitFor(() => joiner.evalJs(`!document.querySelector('[data-testid="scan-sheet"]')`), "scan sheet gone", 5000).catch(() => false);
+    check("the scan sheet is gone once the invite read", scanGone === true);
+    check("the camera ended once the invite read", await joiner.evalJs(`window.__streams.length === 1 && window.__streams[0].getTracks().every((t) => t.readyState === "ended")`));
+    check("the join sheet is the request for this circle", /You have an invite to a circle/.test((await text(joiner, '[data-testid="join-sheet"]')) || ""));
+    check("no page errors on the fresh phone", ((await joiner.evalJs("window.__starlingErrors || []")) || []).length === 0, JSON.stringify(await joiner.evalJs("window.__starlingErrors || []")));
+    joiner.close();
   } finally {
     chromium.kill();
+    chromium2?.kill();
     server.kill();
     rmSync(work, { recursive: true, force: true });
   }

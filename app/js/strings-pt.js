@@ -4,6 +4,11 @@
 // Regenerate the key list with: node tools/extract-strings.mjs
 // Missing entries fall back to English by design.
 export const pt = {
+  "Scan a code": "Escanear um código",
+  "Scan an invite code": "Escanear um código de convite",
+  "Point the camera at the invite code on their screen.": "Aponte a câmera para o código de convite na tela da outra pessoa.",
+  "That is a safety number code, not an invite.": "Esse é um código de número de segurança, não um convite.",
+  "That is not a Starling invite code.": "Isso não é um código de convite do Starling.",
   "Remind me if sharing stays off": "Me lembrar se o compartilhamento continuar desligado",
   "If you stop sharing and do not turn it back on, this phone shows a notification after that long. Nothing goes to your circle.": "Se você parar de compartilhar e não ativar de novo, este celular mostra uma notificação depois desse tempo. Nada vai para o seu círculo.",
   "Never": "Nunca",

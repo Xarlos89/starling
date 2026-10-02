@@ -118,6 +118,12 @@ All notable changes to Starling are recorded here. Versions follow
   post could crowd an isolate that serves many people. A post that says it is
   too large is refused before any of it is read now, and one that does not
   say is cut off at the limit. The relay on your own server already had a cap.
+- **Scan an invite code inside the app.** The sheet behind I have an invite
+  and Join with invite now has Scan a code next to the paste field, so joining
+  no longer needs a separate camera app (#18). An invite that reads goes to the
+  same join request a pasted link does, and the camera stops first. A safety
+  number code is named as one and other codes are turned away while the camera
+  keeps looking. The website has no scanner, as before.
 
 ## [0.15.2]
 

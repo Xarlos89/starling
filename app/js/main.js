@@ -56,6 +56,7 @@ import {
   sameKey,
   safetyQrText,
   checkSafetyQr,
+  parseSafetyQr,
 } from "./roster.js";
 import { createRatchet, epochAt, HISTORY_CHOICES, DEFAULT_HISTORY_EPOCHS } from "./ratchet.js";
 import {
@@ -3700,6 +3701,28 @@ function showRelayMismatch(relay) {
   );
 }
 
+// The paste field and the scanner read an invite the same way: a whole
+// link, a bare fragment, or "j=..." on its own.
+function inviteFromText(text) {
+  const s = String(text ?? "").trim();
+  const idx = s.indexOf("#j=");
+  const frag = idx >= 0 ? s.slice(idx) : s.startsWith("j=") ? `#${s}` : s;
+  return parseInviteFragment(frag);
+}
+
+// Null for an invite, else what the scanner says while it keeps looking.
+function inviteScanProblem(text) {
+  if (inviteFromText(text)) return null;
+  if (parseSafetyQr(text)) return t("That is a safety number code, not an invite.");
+  return t("That is not a Starling invite code.");
+}
+
+function joinFromScan(text, join = promptJoin) {
+  const invite = inviteFromText(text);
+  if (invite) join(invite);
+  return !!invite;
+}
+
 function promptPasteInvite() {
   const ov = ui.openOverlay({ title: "Join with a link", testid: "paste-sheet" });
   ov.body.append(
@@ -3720,10 +3743,7 @@ function promptPasteInvite() {
   const go = ui.el("button", "btn btn-primary", "Continue");
   go.type = "button";
   go.addEventListener("click", () => {
-    const text = input.value.trim();
-    const idx = text.indexOf("#j=");
-    const frag = idx >= 0 ? text.slice(idx) : text.startsWith("j=") ? `#${text}` : text;
-    const invite = parseInviteFragment(frag);
+    const invite = inviteFromText(input.value);
     if (!invite) {
       err.hidden = false;
       return;
@@ -3732,6 +3752,23 @@ function promptPasteInvite() {
     promptJoin(invite);
   });
   ov.body.append(field, err, go);
+  // The app only: the hosted site's headers deny the camera.
+  if (api.canScanQr()) {
+    const scan = ui.el("button", "btn btn-secondary", "Scan a code");
+    scan.type = "button";
+    scan.dataset.testid = "paste-scan";
+    scan.addEventListener("click", () => {
+      ov.close();
+      ui.openScanSheet({
+        api,
+        title: "Scan an invite code",
+        note: "Point the camera at the invite code on their screen.",
+        check: inviteScanProblem,
+        onResult: (text) => joinFromScan(text),
+      });
+    });
+    ov.body.append(scan);
+  }
   input.focus();
 }
 
@@ -6622,6 +6659,9 @@ if (debugHooks()) window.__starlingInternals = {
   resetForwardCache: () => {
     forwardAt = 0;
   },
+  inviteFromText,
+  inviteScanProblem,
+  joinFromScan,
   hasSender: () => !!sender,
   teardownNet,
   resetShareResumeGuard: () => {

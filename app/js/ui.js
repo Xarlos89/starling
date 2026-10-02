@@ -1014,7 +1014,10 @@ export function openSafetyQrSheet({ text, qrSvgFor }) {
 // The camera, drawn to a canvas a few times a second and handed to the
 // decoder. Every track stops the moment a code reads or the sheet closes,
 // and no frame leaves the page.
-export function openScanSheet({ api, onResult, onClose }) {
+// `check` turns away a code without closing: it returns words to show and
+// the camera keeps looking, or null to take the code.
+export function openScanSheet({ api, onResult, onClose, check, title, note }) {
+  const words = { title: "Scan their code", note: "Point the camera at the code on their screen." };
   let stream = null;
   let timer = null;
   let closed = false;
@@ -1031,7 +1034,7 @@ export function openScanSheet({ api, onResult, onClose }) {
     video.srcObject = null;
   };
   const ov = openOverlay({
-    title: "Scan their code",
+    title: title || words.title,
     testid: "scan-sheet",
     onClose: () => {
       closed = true;
@@ -1039,7 +1042,7 @@ export function openScanSheet({ api, onResult, onClose }) {
       onClose?.();
     },
   });
-  const status = el("p", "ov-note", "Point the camera at the code on their screen.");
+  const status = el("p", "ov-note", note || words.note);
   status.dataset.testid = "scan-status";
   const settings = btn("btn btn-secondary btn-small", "Open app settings");
   settings.hidden = true;
@@ -1062,6 +1065,12 @@ export function openScanSheet({ api, onResult, onClose }) {
       hit = null;
     }
     if (!hit) return;
+    const problem = check?.(hit.text);
+    if (problem) {
+      status.textContent = problem;
+      status.className = "ov-warn-note";
+      return;
+    }
     stop();
     ov.close();
     onResult(hit.text);
