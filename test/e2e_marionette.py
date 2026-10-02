@@ -750,6 +750,22 @@ def flow_help_beacon(b):
             raise E2EError("helper page drew no marker for the live position")
         log(f"helper sees: {status}, {marker} marker(s)")
 
+        # What a helper reads out to a dispatcher, and how long the link lasts.
+        coords = c.exec("return document.querySelector('#hv-coords').textContent")
+        want = f"{MOVED[0]:.5f}, {MOVED[1]:.5f}"
+        if not re.fullmatch(r"-?\d+\.\d{5}, -?\d+\.\d{5}", coords or "") or coords != want:
+            raise E2EError(f"helper coordinates {coords!r}, the sharer is at {want!r}")
+        expires = c.exec("return document.querySelector('#hv-expires').textContent")
+        if not (expires or "").startswith("Link works until"):
+            raise E2EError(f"helper page does not say when the link ends: {expires!r}")
+        maps = c.exec("return document.querySelector('#hv-maps').getAttribute('href')")
+        if not (maps or "").startswith("https://www.openstreetmap.org/?mlat="):
+            raise E2EError(f"helper map link is {maps!r}")
+        live = c.exec("return document.querySelector('#hv-status').parentElement.getAttribute('aria-live')")
+        if live != "polite":
+            raise E2EError(f"the status word is not in a polite live region: {live!r}")
+        log(f"helper reads {coords}, {expires}")
+
         # The secret must not linger in the address bar or this browser's
         # history, where it would outlive the emergency and sync away.
         shown = c.url()

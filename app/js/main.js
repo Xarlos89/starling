@@ -5966,8 +5966,9 @@ const beaconViewers = () =>
 async function pushBeacon() {
   if (!beacon || !state.me) return;
   const { lat, lon } = state.me;
+  const bat = await batteryLevel();
   try {
-    await beacon.send({
+    await beacon?.send({
       t: "sos",
       name: state.profile?.name || "Someone",
       emoji: state.profile?.emoji || "\u{1F6A8}",
@@ -5975,6 +5976,7 @@ async function pushBeacon() {
       lat,
       lon,
       ...(Number.isFinite(state.me.acc) ? { acc: state.me.acc } : {}),
+      ...(bat != null ? { bat } : {}),
     });
   } catch {
     // the viewer shows the trail going stale rather than a lie

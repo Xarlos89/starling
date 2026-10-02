@@ -13,7 +13,7 @@ import { parseBeaconFragment, deriveHelpChannelId, deriveHelpEncKey } from "./cr
 import { createRoster, createPoller, statusOf, STALE_MS, epochAt } from "./net.js";
 import { createMapView } from "./map.js";
 import { t, setLocale, resolveLocale, translateDom } from "./i18n.js";
-import { fmtRelTime } from "./fmt.js";
+import { fmtClock, fmtDistance, fmtRelTime } from "./fmt.js";
 
 // A helper opening this in an emergency gets their browser's language, and
 // the page's static copy translates before anything else runs.
@@ -69,6 +69,23 @@ const STATUS_LINE = {
   stale: "Signal lost",
   stopped: "Session ended",
 };
+
+// What a helper needs to act on, each line empty when there is nothing true to say.
+export function helperLines(rec, { now = Date.now(), expiresAt } = {}) {
+  const hasPos = Number.isFinite(rec?.lat) && Number.isFinite(rec?.lon);
+  const lat = hasPos ? rec.lat.toFixed(5) : "";
+  const lon = hasPos ? rec.lon.toFixed(5) : "";
+  return {
+    coords: hasPos ? `${lat}, ${lon}` : "",
+    mapsUrl: hasPos ? `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=17/${lat}/${lon}` : "",
+    acc: Number.isFinite(rec?.acc) && rec.acc >= 0 ? t("Accurate to about {dist}", { dist: fmtDistance(rec.acc) }) : "",
+    bat:
+      typeof rec?.bat === "number" && Number.isFinite(rec.bat)
+        ? t("Phone battery {pct}%", { pct: Math.round(Math.min(1, Math.max(0, rec.bat)) * 100) })
+        : "",
+    expires: Number.isFinite(expiresAt) && expiresAt > now ? t("Link works until {time}", { time: fmtClock(expiresAt) }) : "",
+  };
+}
 
 function showPanel(title, body) {
   $("#hv-panel-title").textContent = t(title);
@@ -162,6 +179,17 @@ async function boot() {
     $("#hv-status").textContent = t(STATUS_LINE[st] || "Sharing");
     $("#hv-status").dataset.state = st;
     $("#hv-ago").textContent = t("Last update {ago}", { ago: fmtRelTime(now - rec.ts) });
+    const lines = helperLines(rec, { now, expiresAt });
+    $("#hv-where").hidden = !lines.coords;
+    $("#hv-coords").textContent = lines.coords;
+    const maps = $("#hv-maps");
+    maps.hidden = !lines.mapsUrl;
+    if (lines.mapsUrl) maps.href = lines.mapsUrl;
+    $("#hv-acc").hidden = !lines.acc;
+    $("#hv-acc").textContent = lines.acc;
+    $("#hv-bat").hidden = !lines.bat;
+    $("#hv-bat").textContent = lines.bat;
+    $("#hv-expires").textContent = lines.expires;
 
     if (Number.isFinite(rec.lat) && Number.isFinite(rec.lon)) {
       mapView.upsert(rec.id, rec);
@@ -176,6 +204,19 @@ async function boot() {
       finish();
     }
   }
+
+  let copiedTimer = 0;
+  $("#hv-copy").addEventListener("click", async () => {
+    const note = $("#hv-copied");
+    try {
+      await navigator.clipboard.writeText($("#hv-coords").textContent);
+      note.textContent = t("Coordinates copied");
+    } catch {
+      note.textContent = t("Copy failed");
+    }
+    clearTimeout(copiedTimer);
+    copiedTimer = setTimeout(() => (note.textContent = ""), 4000);
+  });
 
   // Panning by hand turns follow off; the recenter button turns it back on.
   mapView.map.on("dragstart", () => {

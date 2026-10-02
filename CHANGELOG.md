@@ -30,6 +30,13 @@ All notable changes to Starling are recorded here. Versions follow
   every 15 seconds, a card says so and offers Every 5 minutes for this circle,
   one tap, with Not now to wave it off until the phone has charged past 25%.
   Nothing slows down unless you tap it, and an SOS still goes every 15 seconds.
+- **The help link page gives a helper something to act on.** Under the name it
+  now shows the coordinates to five places with a Copy button, an Open in a map
+  app link, how accurate the fix is, the phone's battery, and the time the link
+  stops working. The status word sits in a polite live region and the ended and
+  expired notices are alerts, so a screen reader hears the session change. The
+  battery is new on the beacon's posts and comes from the same reading the
+  circle gets.
 - **German, French and Brazilian Portuguese.** The whole app, the Android
   notifications and the update-your-WebView screen, under Settings, Language
   or following the phone's language. These are first passes; Spanish had a

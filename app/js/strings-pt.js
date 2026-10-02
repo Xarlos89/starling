@@ -613,4 +613,8 @@ export const pt = {
   "Your battery is at {pct}%": "Sua bateria está com {pct}%",
   "Sending every 5 minutes instead of every 15 seconds makes it last longer. An SOS still goes out every 15 seconds.": "Enviar a cada 5 minutos em vez de a cada 15 segundos faz a bateria durar mais. Um SOS continua saindo a cada 15 segundos.",
   "Every 5 minutes": "A cada 5 minutos",
+  "Accurate to about {dist}": "Precisão de cerca de {dist}",
+  "Phone battery {pct}%": "Bateria do celular: {pct}%",
+  "Link works until {time}": "Link válido até {time}",
+  "Open in a map app": "Abrir em um app de mapas",
 };

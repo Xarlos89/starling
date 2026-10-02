@@ -28,11 +28,24 @@
 <header id="hv-banner" hidden>
   <div class="hv-row">
     <span id="hv-name"></span>
-    <span id="hv-status" data-state="live"></span>
+    <span id="hv-status-live" role="status" aria-live="polite"><span id="hv-status" data-state="live"></span></span>
   </div>
   <div class="hv-sub">
     <span id="hv-ago"></span>
     <span id="hv-net" hidden data-i18n>Reconnecting...</span>
+  </div>
+  <div class="hv-where" id="hv-where" hidden>
+    <code id="hv-coords"></code>
+    <button type="button" id="hv-copy" class="hv-mini" data-i18n>Copy</button>
+    <span id="hv-copied" class="hv-copied" role="status" aria-live="polite"></span>
+  </div>
+  <div class="hv-facts">
+    <span id="hv-acc" hidden></span>
+    <span id="hv-bat" hidden></span>
+  </div>
+  <div class="hv-facts">
+    <a id="hv-maps" class="hv-mini" hidden target="_blank" rel="noopener noreferrer" data-i18n>Open in a map app</a>
+    <span id="hv-expires"></span>
   </div>
 </header>
 
@@ -47,13 +60,13 @@
   <p id="hv-panel-body"></p>
 </div>
 
-<div id="hv-ended" class="hv-card" hidden>
+<div id="hv-ended" class="hv-card" role="alert" hidden>
   <h1 data-i18n>This session has ended</h1>
   <p data-i18n>The person who shared this link stopped their emergency share or checked
   in safe. The last known position stays on the map.</p>
 </div>
 
-<div id="hv-expired" class="hv-card" hidden>
+<div id="hv-expired" class="hv-card" role="alert" hidden>
   <h1 data-i18n>This link has expired</h1>
   <p data-i18n>This help link is no longer active. The last known position stays on the
   map; ask for a fresh link if the emergency is still going on.</p>
