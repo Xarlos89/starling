@@ -881,6 +881,33 @@ function alertItems() {
     });
   }
 
+  if (
+    state.sharing &&
+    !state.sosActive &&
+    activeCadence() === 15 &&
+    ownBat != null &&
+    ownBat < 0.15 &&
+    !ownBatHidden
+  ) {
+    items.push({
+      id: "own-battery",
+      kind: "warn",
+      title: t("Your battery is at {pct}%", { pct: Math.max(1, Math.round(ownBat * 100)) }),
+      text: t("Sending every 5 minutes instead of every 15 seconds makes it last longer. An SOS still goes out every 15 seconds."),
+      actions: [
+        { label: "Every 5 minutes", variant: "btn-primary", testid: "alert-own-battery-slow", onClick: () => onSettingChange("cadence", 300) },
+        {
+          label: "Not now",
+          testid: "alert-own-battery-later",
+          onClick: () => {
+            ownBatHidden = true;
+            render();
+          },
+        },
+      ],
+    });
+  }
+
   const ownDue = timerDue();
   if (ownDue && overdue({ due: ownDue }, now)) {
     items.push({
@@ -5740,6 +5767,10 @@ async function sendLoc(force = false) {
   pulseWrapper();
 }
 
+// This phone's own last battery reading, and whether its card was waved off.
+let ownBat = null;
+let ownBatHidden = false;
+
 async function sendMsg(type) {
   if (state.demo || !sender) return;
   // A re-key can null the live sender during the battery read below.
@@ -5785,7 +5816,11 @@ async function sendMsg(type) {
     }
   }
   const bat = await batteryLevel();
-  if (bat != null) fields.bat = bat;
+  if (bat != null) {
+    fields.bat = bat;
+    ownBat = bat;
+    if (bat > 0.25) ownBatHidden = false;
+  }
   await via.send(fields);
 }
 

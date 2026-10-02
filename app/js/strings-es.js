@@ -620,4 +620,7 @@ export const es = {
   "Arrive": "Llegada",
   "Leave": "Salida",
   "Off": "Ninguna",
+  "Your battery is at {pct}%": "Tu batería está al {pct}%",
+  "Sending every 5 minutes instead of every 15 seconds makes it last longer. An SOS still goes out every 15 seconds.": "Enviar cada 5 minutos en lugar de cada 15 segundos hace que dure más. Un SOS sigue saliendo cada 15 segundos.",
+  "Every 5 minutes": "Cada 5 minutos",
 };

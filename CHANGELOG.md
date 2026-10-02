@@ -26,6 +26,10 @@ All notable changes to Starling are recorded here. Versions follow
   the "At School" line on the member card and stays silent. Places saved
   before this keep saying both, and the switch in Settings still silences
   all of them.
+- **Your own low battery offers the slower cadence.** Below 15% while sharing
+  every 15 seconds, a card says so and offers Every 5 minutes for this circle,
+  one tap, with Not now to wave it off until the phone has charged past 25%.
+  Nothing slows down unless you tap it, and an SOS still goes every 15 seconds.
 - **German, French and Brazilian Portuguese.** The whole app, the Android
   notifications and the update-your-WebView screen, under Settings, Language
   or following the phone's language. These are first passes; Spanish had a
