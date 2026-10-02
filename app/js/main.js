@@ -417,6 +417,9 @@ let quietDismissed = false;
 // have already been called out for a low battery. Memory only, like prevStatus.
 const placeTracker = createPlaceTracker();
 const batWarned = new Set();
+// Per member, cleared when their next SOS starts.
+const sosQuietTold = new Set();
+const sosCardHidden = new Set();
 // The tracker key for this device's own position. Member ids are 32 hex chars,
 // so this can never collide with one.
 const SELF_KEY = "self";
@@ -838,6 +841,32 @@ function alertItems() {
   const items = [];
   if (state.demo) return items;
   const now = Date.now();
+
+  for (const rec of members()) {
+    if (displayStatus(rec, now) !== "sos" || sosCardHidden.has(rec.id)) continue;
+    const who = rec.name || t("A member");
+    items.push({
+      id: `sos:${rec.id}`,
+      kind: "sos",
+      title: t("SOS from {who}", { who }),
+      text:
+        statusOf(rec, now) === "stale"
+          ? t("{who}'s phone stopped sending {ago} ago. The last position it sent is on the map.", { who, ago: fmtRelTime(now - rec.ts) })
+          : t("Their live position is on the map. It stays here until they check in."),
+      toasted: true,
+      actions: [
+        { label: "Show on map", variant: "btn-primary", testid: "alert-sos-show", onClick: () => focusMember(rec.id) },
+        {
+          label: "Got it",
+          testid: "alert-sos-ok",
+          onClick: () => {
+            sosCardHidden.add(rec.id);
+            render();
+          },
+        },
+      ],
+    });
+  }
 
   for (const rec of members()) {
     if (!overdue(rec, now)) continue;
@@ -6163,10 +6192,12 @@ function checkAlerts() {
     placeTracker.update(SELF_KEY, state.me.lat, state.me.lon, { now, acc: state.me.acc });
   }
   for (const rec of members()) {
-    const st = statusOf(rec, now);
+    const st = displayStatus(rec, now);
     const prev = prevStatus.get(rec.id);
     const who = rec.name || t("A member");
     if (st === "sos" && prev !== "sos") {
+      sosQuietTold.delete(rec.id);
+      sosCardHidden.delete(rec.id);
       ui.toast(t("SOS from {who}", { who: rec.name || t("a member") }), "sos");
       navigator.vibrate?.([160, 80, 160, 80, 240]);
       notifyEvent(t("SOS from {who}", { who }), t("Open Starling to see their live position."), `sos-${rec.id}`, true);
@@ -6176,6 +6207,13 @@ function checkAlerts() {
       notifyEvent(t("{who} checked in", { who }), t("The SOS is cleared."), `sos-${rec.id}`);
     }
     prevStatus.set(rec.id, st);
+
+    if (st === "sos" && statusOf(rec, now) === "stale" && !sosQuietTold.has(rec.id)) {
+      sosQuietTold.add(rec.id);
+      const msg = t("{who}'s SOS went quiet", { who });
+      ui.toast(msg, "warn");
+      notifyEvent(msg, t("Their last position is on the map."), `sos-${rec.id}`, true);
+    }
 
     if (overdue(rec, now)) {
       const key = `${rec.id}|${rec.due}`;

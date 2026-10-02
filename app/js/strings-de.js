@@ -601,4 +601,7 @@ export const de = {
   "Your check-in timer is running in {circle}. Check in there before you switch?": "Dein Melde-Timer läuft in {circle}. Dich dort melden, bevor du wechselst?",
   "Check in and switch": "Melden und wechseln",
   "Exit the demo to set a check-in timer.": "Beende die Demo, um einen Melde-Timer zu stellen.",
+  "Their live position is on the map. It stays here until they check in.": "Die Live-Position ist auf der Karte. Das bleibt hier, bis die Person sich meldet.",
+  "{who}'s phone stopped sending {ago} ago. The last position it sent is on the map.": "Das Handy von {who} sendet seit {ago} nichts mehr. Die zuletzt gesendete Position ist auf der Karte.",
+  "{who}'s SOS went quiet": "Das SOS von {who} ist verstummt",
 };

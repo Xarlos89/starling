@@ -11,6 +11,7 @@ import { t, LOCALE_CHOICES } from "./i18n.js";
 import { native, pageShown } from "./env.js";
 import { PLACE_RADII, MAX_PLACES, MAX_NAME_LEN } from "./places.js";
 import { DEFAULT_TIMER_MIN, TIMER_CHOICES_MIN } from "./checkin.js";
+import { staleAfter } from "./net.js";
 import { VERSION } from "./version.js";
 
 const AUTHOR = { name: "Munzzyy", url: "https://github.com/munzzyy" };
@@ -2812,6 +2813,7 @@ function buildCard(id, onTap) {
 
 export function memberSubLine(rec, now, mePos, place, status) {
   const bits = [];
+  if (status === "sos" && now - rec.ts > staleAfter(rec)) bits.push(t("Signal lost"));
   // The caption only speaks for a live presence: "omw" on a dot that
   // stopped sharing an hour ago is a stale claim, not a status.
   if (rec.st && (status === "live" || status === "checkin" || status === "sos")) {

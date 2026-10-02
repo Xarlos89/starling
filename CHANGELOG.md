@@ -13,6 +13,13 @@ All notable changes to Starling are recorded here. Versions follow
   before. Only a check-in you tap stops it. Stopping sharing, the app lock,
   leaving and wiping do not, on purpose. Phones on older versions ignore the
   deadline and are not told.
+- **An SOS that goes quiet stays an SOS.** A member whose phone stopped
+  sending in the middle of an SOS used to turn into "Last seen" and sink below
+  everyone still live, at exactly the moment the circle most needs them on top.
+  They keep the red chip and the top of the list now, with "Signal lost" on
+  their line, and your phone says once that the SOS went quiet. An incoming SOS
+  also leaves a card on the sheet with Show on map, until they check in, say
+  bye, or you tap Got it. The help link page still reads "Signal lost".
 - **German, French and Brazilian Portuguese.** The whole app, the Android
   notifications and the update-your-WebView screen, under Settings, Language
   or following the phone's language. These are first passes; Spanish had a
