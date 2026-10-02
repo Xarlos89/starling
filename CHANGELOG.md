@@ -35,7 +35,7 @@ All notable changes to Starling are recorded here. Versions follow
   app link, how accurate the fix is, the phone's battery, and the time the link
   stops working. The status word sits in a polite live region and the ended and
   expired notices are alerts, so a screen reader hears the session change. The
-  battery is new on the beacon's posts and comes from the same reading the
+  battery reading is new on what the help link receives, the same one the
   circle gets.
 - **Only your language loads.** The app and the help link page pulled all four
   translations on every start, which on the help page was 283 KB of its 399 KB

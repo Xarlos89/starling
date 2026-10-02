@@ -344,7 +344,7 @@ a native speaker, a store account, or a design decision.
   first: whether ordinary links on the hosted viewer are fine outside an
   emergency, how loudly the phone has to say one is running so it cannot
   turn into a quiet tracker, and whether it follows neighborhood precision
-  and privacy fences the way an SOS on purpose does not.
+  and privacy fences, which an SOS ignores on purpose.
 - An SOS from the sharing notification or the lock screen, without opening
   the app. That is a lock screen security call, the same kind that makes
   Stop ask for an unlock on Android 12 and up, and a pocket tap that sends a
