@@ -1188,6 +1188,10 @@ a.land-download {
   animation: sos-throb 1.4s ease-in-out infinite;
 }
 
+.ava-mini.ava-overdue {
+  border-color: var(--warn);
+}
+
 .ava-more {
   font-size: 0.6875rem;
   font-weight: 700;
@@ -1232,6 +1236,11 @@ a.land-download {
   border-color: rgba(244, 63, 94, 0.55);
   background: color-mix(in srgb, var(--sos) 9%, var(--bg-1));
   animation: sos-throb 1.4s ease-in-out infinite;
+}
+
+.member-card.mc-overdue {
+  border-color: rgba(251, 191, 36, 0.55);
+  background: color-mix(in srgb, var(--warn) 9%, var(--bg-1));
 }
 
 .member-card.mc-stale .ava,
@@ -1286,6 +1295,11 @@ a.land-download {
   background: var(--sos);
 }
 
+.chip-overdue {
+  color: #1a1204;
+  background: var(--warn);
+}
+
 .chip-checkin {
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 14%, transparent);
@@ -1303,6 +1317,9 @@ a.land-download {
 }
 :root[data-theme="light"] .chip-checkin {
   color: #0f766e;
+}
+:root[data-theme="light"] .chip-overdue {
+  color: #fff;
 }
 
 .bat {
@@ -1428,6 +1445,10 @@ a.land-download {
 
 .focus-card.fc-sos {
   border-color: rgba(244, 63, 94, 0.55);
+}
+
+.focus-card.fc-overdue {
+  border-color: rgba(251, 191, 36, 0.55);
 }
 
 .fc-head {
@@ -2631,6 +2652,27 @@ button.you-info {
   width: auto;
   padding: 8px 14px;
   font-size: 0.8125rem;
+}
+
+/* -------------------------------------------------------- check-in timer */
+
+.timer-running {
+  display: grid;
+  gap: 8px;
+  margin: 4px 0 16px;
+}
+
+.timer-due {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.timer-share {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
 }
 
 /* ------------------------------------------------------------ a11y floor */

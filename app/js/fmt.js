@@ -1,7 +1,7 @@
 // Pure formatting and geometry helpers. Unit-tested; the one word in here
 // ("now") goes through the translation layer.
 
-import { t } from "./i18n.js";
+import { t, currentLocale } from "./i18n.js";
 
 const EARTH_R = 6371008.8; // mean Earth radius, meters
 
@@ -32,6 +32,12 @@ export function fmtRelTime(msAgo) {
   const h = Math.floor(min / 60);
   if (h < 24) return `${h} h ${String(min % 60).padStart(2, "0")} min`;
   return `${Math.floor(h / 24)} d`;
+}
+
+// A wall-clock time in the app's language, like 21:30 or 9:30 PM.
+export function fmtClock(ms) {
+  if (!Number.isFinite(ms)) return "";
+  return new Intl.DateTimeFormat(currentLocale(), { hour: "numeric", minute: "2-digit" }).format(ms);
 }
 
 // Initial great-circle bearing from point 1 toward point 2, degrees

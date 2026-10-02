@@ -105,6 +105,7 @@ import {
   zero,
 } from "./lock.js";
 import { createPlaceTracker, sanitizePlaces, newPlaceId, fenceSnap, DEFAULT_RADIUS } from "./places.js";
+import { DUE_GRACE_MS, DUE_WARN_MS, overdue, storedTimer, warnDue } from "./checkin.js";
 import { debugHooks, apiUrl, customRelayInUse, isWrapped, isBundled, native, pageShown, shareUrlBase, normalizeRelay, normalizeForward, normalizeForwardTid, setApiBase, shareCapable } from "./env.js";
 import {
   isSealedRecordError,
@@ -137,12 +138,12 @@ import {
 } from "./circles.js";
 import * as ui from "./ui.js";
 import { createMapView } from "./map.js";
-import { createPoller, createRoster, createSender, statusOf, sortMembers, staleAfter } from "./net.js";
+import { createPoller, createRoster, createSender, statusOf, displayStatus, sortMembers, staleAfter } from "./net.js";
 import { createOutbox } from "./outbox.js";
 import { buildDataExport } from "./export.js";
 import { startBeacon } from "./helpsession.js";
 import { startWatch, batteryLevel } from "./geo.js";
-import { haversineMeters, coarsePos, hueFromMemberId, fmtRelTime } from "./fmt.js";
+import { haversineMeters, coarsePos, hueFromMemberId, fmtRelTime, fmtClock } from "./fmt.js";
 import { parseHealth, shareProblems, sentNote, noteAfter, sendErrorKind, shareReport } from "./sharehealth.js";
 import { VERSION } from "./version.js";
 import { createDemo, demoPlaces, DEMO_CENTER } from "./demo.js";
@@ -496,6 +497,7 @@ if (debugHooks()) window.__starlingState = () => {
     clockError: !!state.clockError,
     chainDestroyed: !!state.chainDestroyed,
     retired: !!state.retired,
+    checkinDue: timerDue(),
     members: sortMembers(members(), now).map((r) => ({
       id: r.id,
       name: r.name ?? null,
@@ -504,6 +506,8 @@ if (debugHooks()) window.__starlingState = () => {
       ts: r.ts ?? null,
       type: r.type ?? null,
       stale: now - r.ts > staleAfter(r),
+      status: displayStatus(r, now),
+      due: r.due ?? null,
     })),
     me:
       state.identity || state.demo
@@ -672,11 +676,11 @@ function render() {
   ui.updateMemberList($("#member-list"), list, {
     now,
     mePos: state.me,
-    statusOf,
+    statusOf: displayStatus,
     onTap: focusMember,
     placeOf: (id) => placeTracker.placeFor(id)?.name || null,
   });
-  ui.updateAvaStrip($("#ava-strip"), list, { statusOf, now });
+  ui.updateAvaStrip($("#ava-strip"), list, { statusOf: displayStatus, now });
   renderMarkers(list, now);
   $("#nudge").hidden = state.demo || !state.gen || list.length > 0;
   renderFocus(list, now);
@@ -747,6 +751,8 @@ function renderYou() {
   if (state.sharing && shareDeadline) {
     sub += ` · ${t("stops in {left}", { left: fmtRelTime(Math.max(0, shareDeadline - Date.now())) })}`;
   }
+  const due = timerDue();
+  if (due) sub += ` · ${t("Check in by {time}", { time: fmtClock(due) })}`;
   if (state.sharing && state.profile?.st) sub = `"${state.profile.st}" · ${sub}`;
   // No background execution on this platform, so sharing runs only while the
   // app is in front. It belongs on the line that claims you are live, not in a
@@ -831,6 +837,31 @@ function renderYou() {
 function alertItems() {
   const items = [];
   if (state.demo) return items;
+  const now = Date.now();
+
+  for (const rec of members()) {
+    if (!overdue(rec, now)) continue;
+    const who = rec.name || t("A member");
+    items.push({
+      id: `due:${rec.id}`,
+      kind: "sos",
+      title: t("{who} missed their check-in", { who }),
+      text: t("Their timer ran out at {time}. Their last position is on the map.", { time: fmtClock(rec.due) }),
+      toasted: true,
+      actions: [{ label: "Show on map", variant: "btn-primary", testid: "alert-due-show", onClick: () => focusMember(rec.id) }],
+    });
+  }
+
+  const ownDue = timerDue();
+  if (ownDue && overdue({ due: ownDue }, now)) {
+    items.push({
+      id: "own-due",
+      kind: "warn",
+      title: t("You missed your check-in"),
+      text: t("Your circle has been told. Check in now if you are okay."),
+      actions: [{ label: "Check in now", variant: "btn-primary", testid: "alert-own-due", onClick: doCheckin }],
+    });
+  }
 
   if (state.stopRecord) {
     const route = state.stopRecord.route;
@@ -1209,7 +1240,7 @@ function renderAlerts() {
     seen.add(item.id);
     if (announcedAlerts.has(item.id)) continue;
     announcedAlerts.add(item.id);
-    if (item.kind !== "info" && item.title && sheet && sheet.getSnap() === "peek") ui.toast(item.title);
+    if (item.kind !== "info" && !item.toasted && item.title && sheet && sheet.getSnap() === "peek") ui.toast(item.title);
   }
   announcedAlerts = seen;
 }
@@ -1234,6 +1265,17 @@ function renderTools() {
   badge.hidden = !count;
   badge.textContent = String(count);
   badge.classList.toggle("tool-badge-alert", changed > 0);
+  const timerSub = $("#timer-tool-sub");
+  if (timerSub) {
+    const due = timerDue();
+    timerSub.textContent = !due
+      ? t("Get your circle told if you miss a check-in")
+      : overdue({ due }, Date.now())
+        ? t("You missed your check-in")
+        : t("Check in by {time}", { time: fmtClock(due) });
+  }
+  const timerBtn = byTestid("timer-open");
+  if (timerBtn) timerBtn.onclick = openCheckinTimer;
   const placesSub = $("#places-tool-sub");
   if (placesSub) {
     const n = state.places.length;
@@ -1343,7 +1385,8 @@ function renderMarkers(list, now) {
       name: rec.name || t("Member"),
       emoji: rec.emoji || "",
       hue: rec.hue ?? hueFromMemberId(rec.id),
-      status: statusOf(rec, now),
+      // map.js draws sos, live and stale; a missed check-in keeps its wire look there.
+      status: displayStatus(rec, now) === "overdue" ? statusOf(rec, now) : displayStatus(rec, now),
       ts: rec.ts,
       now,
       staleMs: staleAfter(rec),
@@ -1398,7 +1441,7 @@ function renderFocus(list, now) {
   ui.renderFocusCard(card, rec, {
     now,
     mePos: state.me,
-    statusOf,
+    statusOf: displayStatus,
     place: placeTracker.placeFor(rec.id)?.name || null,
     trailOn: focusTrailOn && state.settings.trail,
     onTrailToggle: () => {
@@ -4532,7 +4575,15 @@ async function promoteCircle(i) {
   return true;
 }
 
-const switchCircle = (i) => withCircleGuard(() => doSwitchCircle(i));
+// A timer cannot follow the person into another circle, so it is settled first.
+const switchCircle = async (i) => {
+  if (timerDue() && !state.demo && !state.locked) {
+    if (!(await ui.confirmTimerSwitch(state.circleName))) return false;
+    await doCheckin();
+    if (timerDue() || outbox.pending().includes("checkin")) return false;
+  }
+  return withCircleGuard(() => doSwitchCircle(i));
+};
 
 const leaveCircle = () =>
   withCircleGuard(async () => {
@@ -5677,6 +5728,8 @@ async function sendMsg(type) {
     // plaintext as everything else; empty string means no caption.
     st: (state.profile?.st || "").slice(0, 24),
   };
+  const due = timerDue();
+  if (due) fields.due = due;
   if (state.me) {
     let { lat, lon } = state.me;
     // Privacy fences: inside a fenced place the circle sees the place's
@@ -5719,6 +5772,7 @@ async function doCheckin() {
     return;
   }
   if (wasSos) applyCadence();
+  if (timerDue()) clearCheckinTimer();
   try {
     await sendMsg("checkin");
     // Checking in safe cancels a queued SOS retry and is exactly the moment
@@ -5917,6 +5971,113 @@ function cancelEventNotification(tag) {
   }
 }
 
+// ---------------------------------------------------------- check-in timer
+
+// Plaintext at rest like shareArmed: a deadline and the identity it belongs to.
+const CHECKIN_KEY = "checkinDue";
+let checkinTimer = null;
+let dueTimer = 0;
+let dueWarnedFor = 0;
+// `${memberId}|${due}` pairs the circle was already told about.
+const dueAnnounced = new Set();
+
+const timerDue = () =>
+  checkinTimer && checkinTimer.member === state.identity?.memberId ? checkinTimer.due : null;
+
+function scheduleDueTimer() {
+  clearTimeout(dueTimer);
+  dueTimer = 0;
+  const due = timerDue();
+  if (!due) return;
+  const now = Date.now();
+  const next = [due - DUE_WARN_MS, due + DUE_GRACE_MS].find((at) => at > now);
+  if (!next) return;
+  dueTimer = setTimeout(() => {
+    dueTimer = 0;
+    checkOwnTimer();
+    if (state.screen === "map" && !state.locked) render();
+  }, Math.min(next - now + 50, 0x7fffffff));
+}
+
+// Runs on every poll too, which also covers a timer restored before an unlock.
+function checkOwnTimer(now = Date.now()) {
+  const due = timerDue();
+  if (!due || state.demo) return;
+  if (warnDue(due, now) && dueWarnedFor !== due) {
+    dueWarnedFor = due;
+    const msg = t("Check in within 5 minutes, or your circle is told.");
+    // The lock screen must not say a timer is running.
+    if (!state.locked) ui.toast(msg, "warn");
+    notifyEvent(msg, "", "due-self");
+  }
+  if (!dueTimer) scheduleDueTimer();
+}
+
+async function startCheckinTimer(minutes) {
+  if (state.demo || state.locked || !state.gen || !state.identity) return false;
+  const due = Date.now() + minutes * 60 * 1000;
+  checkinTimer = { due, member: state.identity.memberId };
+  dueWarnedFor = 0;
+  cancelEventNotification("due-self");
+  try {
+    await dbSet(CHECKIN_KEY, checkinTimer);
+  } catch (e) {
+    window.__starlingErrors.push(`timer: ${String(e)}`);
+  }
+  scheduleDueTimer();
+  render();
+  // Posted now so the circle holds the deadline even if this phone goes quiet.
+  const type = state.sosActive ? "sos" : state.sharing ? "loc" : "checkin";
+  try {
+    await sendMsg(type);
+    ui.toast(t("Timer set. Check in by {time}.", { time: fmtClock(due) }));
+  } catch (e) {
+    await noteSendFailure(e);
+    if (!state.clockError && type !== "loc") outbox.enqueue(type);
+    ui.toast(t("Timer set, but your circle does not have it yet. Starling keeps trying."), "warn");
+  }
+  render();
+  return true;
+}
+
+function clearCheckinTimer() {
+  checkinTimer = null;
+  dueWarnedFor = 0;
+  clearTimeout(dueTimer);
+  dueTimer = 0;
+  dbDel(CHECKIN_KEY).catch(() => {});
+  cancelEventNotification("due-self");
+}
+
+async function restoreCheckinTimer() {
+  let raw = null;
+  try {
+    raw = await dbGet(CHECKIN_KEY);
+  } catch {
+    return;
+  }
+  checkinTimer = storedTimer(raw, null, Date.now());
+  if (raw && !checkinTimer) dbDel(CHECKIN_KEY).catch(() => {});
+  scheduleDueTimer();
+}
+
+function openCheckinTimer() {
+  if (state.demo) {
+    ui.toast("Exit the demo to set a check-in timer.");
+    return;
+  }
+  if (!state.gen) return;
+  keepLive((done) =>
+    ui.openCheckinTimerSheet({
+      api: { due: timerDue, sharing: () => state.sharing },
+      onStart: startCheckinTimer,
+      onCheckin: doCheckin,
+      onShare: () => setSharing(true),
+      onClose: done,
+    }),
+  );
+}
+
 // ---------------------------------------------------------------- status UI
 
 function openStatus() {
@@ -5995,6 +6156,7 @@ function openPlaces() {
 
 function checkAlerts() {
   const now = Date.now();
+  checkOwnTimer(now);
   // Your own position feeds the tracker too, so the sheet can say where you
   // are. It never fires an announcement: you were there.
   if (state.me && Number.isFinite(state.me.lat)) {
@@ -6014,6 +6176,25 @@ function checkAlerts() {
       notifyEvent(t("{who} checked in", { who }), t("The SOS is cleared."), `sos-${rec.id}`);
     }
     prevStatus.set(rec.id, st);
+
+    if (overdue(rec, now)) {
+      const key = `${rec.id}|${rec.due}`;
+      if (!dueAnnounced.has(key)) {
+        dueAnnounced.add(key);
+        const msg = t("{who} missed their check-in", { who });
+        ui.toast(msg, "warn");
+        notifyEvent(msg, t("Their last position is on the map."), `due-${rec.id}`, true);
+      }
+    } else {
+      let told = false;
+      for (const key of dueAnnounced) {
+        if (key.startsWith(`${rec.id}|`)) {
+          dueAnnounced.delete(key);
+          told = true;
+        }
+      }
+      if (told) cancelEventNotification(`due-${rec.id}`);
+    }
 
     // Place transitions are tracked whether or not announcements are on, so
     // the "At Home" line stays truthful either way.
@@ -6181,6 +6362,7 @@ document.addEventListener("visibilitychange", ensureWakeLock);
 const api = {
   state,
   members,
+  checkinDue: () => timerDue(),
   // invitations
   createInvite,
   burnInvite,
@@ -6250,6 +6432,10 @@ if (debugHooks()) window.__starlingApi = api;
 if (debugHooks()) window.__starlingInternals = {
   state,
   pinnedStore,
+  roster: () => roster,
+  checkinDue: () => timerDue(),
+  startCheckinTimer,
+  restoreCheckinTimer,
   addPinned,
   acceptKeyChange,
   onKeyChange,
@@ -6659,6 +6845,8 @@ async function boot() {
       else if (invite) promptJoin(invite);
     }
   }
+
+  await restoreCheckinTimer();
 
   render();
 

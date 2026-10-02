@@ -24,6 +24,7 @@ import { openMessage, sealMessage, buildPost } from "./crypto.js";
 import { admitPinned, keyChangeVerdict } from "./roster.js";
 import { EPOCH_MS, epochAt } from "./ratchet.js";
 import { apiUrl, isWrapped, pageShown } from "./env.js";
+import { dueFrom, overdue } from "./checkin.js";
 
 const POLL_MS = 10000;
 // The wrapper keeps listening while hidden, at a relaxed cadence: an SOS is
@@ -62,12 +63,19 @@ export function statusOf(rec, now) {
   return "live";
 }
 
-const RANK = { sos: 0, live: 1, checkin: 1, stale: 2, stopped: 3 };
+// What a person sees: statusOf stays the wire truth the help viewer reads.
+export function displayStatus(rec, now) {
+  const st = statusOf(rec, now);
+  if (st === "sos") return st;
+  return overdue(rec, now) ? "overdue" : st;
+}
+
+const RANK = { sos: 0, overdue: 1, live: 2, checkin: 2, stale: 3, stopped: 4 };
 
 export function sortMembers(list, now) {
   return [...list].sort((a, b) => {
-    const ra = RANK[statusOf(a, now)];
-    const rb = RANK[statusOf(b, now)];
+    const ra = RANK[displayStatus(a, now)];
+    const rb = RANK[displayStatus(b, now)];
     return ra !== rb ? ra - rb : b.ts - a.ts;
   });
 }
@@ -233,6 +241,7 @@ export function createRoster({ channelId, ratchet, selfId, pinned, onControl, on
         if (obj.ts <= rec.ts) continue;
         rec.ts = obj.ts;
         rec.type = typeof obj.t === "string" ? obj.t : "loc";
+        rec.due = dueFrom(obj);
         if (typeof obj.name === "string") rec.name = obj.name.slice(0, 24);
         if (typeof obj.emoji === "string") rec.emoji = obj.emoji.slice(0, 8);
         if (Number.isFinite(obj.hue)) rec.hue = ((obj.hue % 360) + 360) % 360;

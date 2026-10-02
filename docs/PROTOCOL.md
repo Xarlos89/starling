@@ -240,6 +240,16 @@ member stale only after two of those have passed with nothing heard, and never
 sooner than three minutes. A receiver that does not read it keeps the three
 minutes. An SOS always says 15.
 
+`due` is there only while the sender has a check-in timer running. It is the
+time, in milliseconds since the Unix epoch, by which they said they would check
+in. Every message type carries it while the timer runs, `bye` included, and the
+`checkin` that stops the timer is the first message without it. A receiver keeps
+the deadline from the newest message it accepted, treats a `due` that is not
+after that message's `ts`, or is more than 24 hours after it, as absent, and
+calls the sender overdue once a minute has passed after the deadline, so two
+clocks that disagree a little do not raise an alarm. Older receivers ignore the
+field and are never told.
+
 On a circle channel `t` is one of `loc`, `checkin`, `sos`, `bye` or `rekey`. On
 an invite channel it is `join`, `ack`, `welcome` or `member`; a `member` record
 is refused anywhere else, see [Member records are

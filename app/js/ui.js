@@ -5,11 +5,12 @@
 // Hard rule respected throughout: user-controlled strings (names, statuses,
 // anything decrypted) only ever pass through textContent, never innerHTML.
 
-import { bearingDeg, compassWord, fmtDistance, fmtRelTime, haversineMeters } from "./fmt.js";
+import { bearingDeg, compassWord, fmtClock, fmtDistance, fmtRelTime, haversineMeters } from "./fmt.js";
 import { HISTORY_CHOICES } from "./ratchet.js";
 import { t, LOCALE_CHOICES } from "./i18n.js";
 import { native, pageShown } from "./env.js";
 import { PLACE_RADII, MAX_PLACES, MAX_NAME_LEN } from "./places.js";
+import { DEFAULT_TIMER_MIN, TIMER_CHOICES_MIN } from "./checkin.js";
 import { VERSION } from "./version.js";
 
 const AUTHOR = { name: "Munzzyy", url: "https://github.com/munzzyy" };
@@ -1565,6 +1566,92 @@ export function openStatusSheet({ current, onSet, onClose }) {
   return ov;
 }
 
+// ---------------------------------------------------------- check-in timer
+
+export function openCheckinTimerSheet({ api, onStart, onCheckin, onShare, onClose }) {
+  const ov = openOverlay({ title: "Check-in timer", testid: "timer-sheet", onClose });
+  ov.body.append(
+    el(
+      "p",
+      "ov-note",
+      "Pick how long you need. If you have not checked in when it runs out, your circle is told, even if this phone is off by then. Only checking in stops it.",
+    ),
+  );
+  const running = el("div", "timer-running");
+  const dueLine = el("p", "timer-due");
+  dueLine.dataset.testid = "timer-due";
+  const checkBtn = btn("btn btn-primary", "Check in now");
+  checkBtn.dataset.testid = "timer-checkin";
+  checkBtn.addEventListener("click", () => onCheckin());
+  running.append(dueLine, checkBtn);
+
+  let minutes = DEFAULT_TIMER_MIN;
+  const choice = segControl({
+    label: "Check in within",
+    options: TIMER_CHOICES_MIN.map((m) => ({ value: m, label: m < 60 ? `${m} min` : `${m / 60} h` })),
+    value: minutes,
+    onChange: (v) => {
+      minutes = v;
+    },
+  });
+  const start = btn("btn btn-secondary", "Start timer");
+  start.dataset.testid = "timer-start";
+  start.addEventListener("click", async () => {
+    start.disabled = true;
+    try {
+      await onStart(minutes);
+    } finally {
+      start.disabled = false;
+    }
+  });
+
+  const shareBox = el("div", "timer-share");
+  const shareBtn = btn("btn btn-ghost", "Start sharing too");
+  shareBtn.dataset.testid = "timer-share";
+  shareBtn.addEventListener("click", () => onShare());
+  shareBox.append(
+    el("p", "field-note", "Sharing is off, so your circle gets the timer and the last position this phone sent, not where you are now."),
+    shareBtn,
+  );
+  ov.body.append(running, choice, start, shareBox);
+
+  function paint() {
+    const due = api.due();
+    running.hidden = !due;
+    if (due) dueLine.textContent = t("Check in by {time}", { time: fmtClock(due) });
+    start.className = `btn ${due ? "btn-secondary" : "btn-primary"}`;
+    shareBox.hidden = api.sharing();
+  }
+  paint();
+  return { close: ov.close, refresh: paint };
+}
+
+export function confirmTimerSwitch(circle) {
+  return new Promise((resolve) => {
+    let answered = false;
+    const answer = (yes) => {
+      answered = true;
+      resolve(yes);
+      ov.close();
+    };
+    const ov = openOverlay({
+      title: "Check-in timer",
+      testid: "timer-switch-sheet",
+      onClose: () => {
+        if (!answered) resolve(false);
+      },
+    });
+    ov.body.append(el("p", "ov-note", t("Your check-in timer is running in {circle}. Check in there before you switch?", { circle })));
+    const go = btn("btn btn-primary", "Check in and switch");
+    go.dataset.testid = "timer-switch-go";
+    go.addEventListener("click", () => answer(true));
+    const cancel = btn("btn btn-ghost", "Cancel");
+    cancel.dataset.testid = "timer-switch-cancel";
+    cancel.addEventListener("click", () => answer(false));
+    ov.body.append(go, cancel);
+  });
+}
+
 // ---------------------------------------------------------------- places
 //
 // Named spots that live only on this phone. The sheet edits the local list;
@@ -2687,7 +2774,7 @@ export function createSheet(sheetEl, dragEl, bodyEl, { onSnap } = {}) {
 
 // ------------------------------------------------------------ member cards
 
-const CHIP_TEXT = { live: "Live", sos: "SOS", checkin: "Checked in", stopped: "Stopped", stale: "Last seen" };
+const CHIP_TEXT = { live: "Live", sos: "SOS", overdue: "Missed check-in", checkin: "Checked in", stopped: "Stopped", stale: "Last seen" };
 
 function buildAva(cls) {
   const ava = el("div", cls);
@@ -2731,6 +2818,7 @@ export function memberSubLine(rec, now, mePos, place, status) {
     bits.push(`"${rec.st}"`);
   }
   if (place) bits.push(t("At {place}", { place }));
+  if (rec.due) bits.push(t("Check in by {time}", { time: fmtClock(rec.due) }));
   bits.push(fmtRelTime(now - rec.ts));
   if (mePos && Number.isFinite(rec.lat) && Number.isFinite(rec.lon)) {
     bits.push(fmtDistance(haversineMeters(mePos.lat, mePos.lon, rec.lat, rec.lon)));
@@ -2797,6 +2885,7 @@ export function updateAvaStrip(container, items, { statusOf, now }) {
     }
     a.style.setProperty("--m-hue", String(rec.hue ?? 0));
     a.classList.toggle("ava-sos", st === "sos");
+    a.classList.toggle("ava-overdue", st === "overdue");
     a.classList.toggle("ava-dim", st === "stale" || st === "stopped");
     const emoji = $(".ava-emoji", a);
     if (emoji.textContent !== (rec.emoji || "")) emoji.textContent = rec.emoji || "";

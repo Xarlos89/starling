@@ -105,6 +105,10 @@ your live position in any browser with no app and no account, for as long as
 the emergency lasts. It shows that one emergency: not your circle, not its
 other members, not any history. Checking in safe switches it off.
 
+A check-in timer covers the walk home or the meeting with a stranger: pick 30
+minutes to 8 hours, and if you have not checked in by then your circle's phones
+say so, even if yours is off or gone.
+
 Circles are app-only by design. The hosted website is a landing page plus that
 demo; it refuses to create or open circles, because a browser tab is the
 weakest place to keep a long-lived location secret (extensions, shared

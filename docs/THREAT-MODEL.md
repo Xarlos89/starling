@@ -396,6 +396,32 @@ Its properties, as wired:
   top of the relay metadata above. A helper who cannot accept that should
   not open the link from a network they need to protect.
 
+## Check-in timer
+
+A check-in timer is a deadline you set for yourself: check in within the hour,
+or your circle hears about it. While it runs, every post from your phone carries
+the deadline inside the sealed plaintext, and it is your circle's phones that
+notice when it passes. The alert does not depend on your phone being on, which
+is the point: a phone that was taken, smashed or switched off cannot report
+itself missing.
+
+- The relay learns nothing new. The deadline rides inside the same padded
+  ciphertext as everything else, and setting a timer is one more post of the
+  usual size, which looks like any other check-in or position.
+- Phones on older versions ignore the field, so anyone in your circle still
+  running one is not told when you miss a check-in.
+- A receiver hears about a missed check-in only while its own app can listen,
+  the limit in item 16 above. If every phone in your circle is off or has the
+  app swiped away, the alert waits for the next one to open the app.
+- Only a check-in tapped on your phone stops it. Stopping sharing, the app
+  lock, leaving the circle, Panic and the duress passcode all leave the deadline
+  where it is on the other phones, on purpose: someone made to stop sharing or
+  wipe the app is exactly who the timer is for. The cost is that a wipe you
+  chose still ends in an alert at the deadline unless you check in first.
+- The deadline is kept on your phone in plaintext next to the circle identity,
+  like the record that a share was running, so a seized phone shows that a
+  timer is set and when it runs out, even with the app locked.
+
 ## Multiple circles
 
 Since 0.3.0 a device can hold several circles, one active at a time. As of
