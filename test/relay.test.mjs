@@ -342,6 +342,52 @@ test("body over MAX_BODY is 413 and writes nothing", async () => {
   await assertRejected(env, postLoc(env, circle.channel, "x".repeat(MAX_BODY + 1)), 413, before);
 });
 
+// A body that counts what the relay pulls out of it, 64 KiB at a time.
+function countingStream(total) {
+  const chunk = new Uint8Array(64 * 1024).fill(0x78);
+  const seen = { pulled: 0 };
+  // highWaterMark 0: nothing is pulled until somebody reads.
+  const stream = new ReadableStream(
+    {
+      pull(controller) {
+        if (seen.pulled >= total) return controller.close();
+        seen.pulled += chunk.byteLength;
+        controller.enqueue(chunk);
+      },
+    },
+    { highWaterMark: 0 },
+  );
+  return { stream, seen };
+}
+
+function streamedPost(channel, stream, headers = {}) {
+  return new Request(`${ORIGIN}/api/v2/f/${channel}/loc`, {
+    method: "POST",
+    headers: { "cf-connecting-ip": freshIp(), "content-type": "application/json", ...headers },
+    body: stream,
+    duplex: "half",
+  });
+}
+
+test("a post whose content-length exceeds MAX_BODY is refused before the body is read", async () => {
+  const env = freshEnv();
+  const circle = await makeCircle();
+  const before = snap(env);
+  const { stream, seen } = countingStream(8 * 1024 * 1024);
+  const post = streamedPost(circle.channel, stream, { "content-length": String(8 * 1024 * 1024) });
+  await assertRejected(env, worker.fetch(post, env), 413, before);
+  assert.equal(seen.pulled, 0, "not one chunk of the body was asked for");
+});
+
+test("a streamed post body is cut off at MAX_BODY", async () => {
+  const env = freshEnv();
+  const circle = await makeCircle();
+  const before = snap(env);
+  const { stream, seen } = countingStream(8 * 1024 * 1024);
+  await assertRejected(env, worker.fetch(streamedPost(circle.channel, stream), env), 413, before);
+  assert.ok(seen.pulled <= 128 * 1024, `pulled ${seen.pulled} bytes of an 8 MiB body`);
+});
+
 test("non-JSON body is 400 and writes nothing", async () => {
   const env = freshEnv();
   const circle = await makeCircle();

@@ -155,6 +155,35 @@ function corsHeaders(origin, env, url) {
   return { "access-control-allow-origin": origin, vary: "origin" };
 }
 
+// The body as text, or null past `limit` bytes. An isolate serves many
+// requests in 128 MB, so a large post is refused on its declared length, or
+// cut off one chunk past the limit, and never buffered whole.
+async function readCapped(request, limit) {
+  const declared = Number(request.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > limit) return null;
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const chunks = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > limit) {
+      await reader.cancel().catch(() => {});
+      return null;
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(size);
+  let at = 0;
+  for (const c of chunks) {
+    bytes.set(c, at);
+    at += c.byteLength;
+  }
+  return new TextDecoder().decode(bytes);
+}
+
 async function handlePost(request, env, channel, url) {
   const origin = request.headers.get("origin");
   if (!originAllowed(origin, env, url)) return err(403, "forbidden");
@@ -178,8 +207,8 @@ async function handlePost(request, env, channel, url) {
     return err(429, "rate limited");
   }
 
-  const text = await request.text();
-  if (new TextEncoder().encode(text).length > MAX_BODY) return err(413, "too large");
+  const text = await readCapped(request, MAX_BODY);
+  if (text === null) return err(413, "too large");
 
   let parsed;
   try {

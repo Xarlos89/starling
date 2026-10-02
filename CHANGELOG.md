@@ -113,6 +113,11 @@ All notable changes to Starling are recorded here. Versions follow
   the app has no web share, so the app now opens the Android share sheet
   itself and leaves the clipboard alone. The link is still copied when there
   is no window to show the sheet in.
+- **The relay refuses an oversized post without reading it.** The Cloudflare
+  relay read a whole post into memory before it checked the size, so one huge
+  post could crowd an isolate that serves many people. A post that says it is
+  too large is refused before any of it is read now, and one that does not
+  say is cut off at the limit. The relay on your own server already had a cap.
 
 ## [0.15.2]
 
