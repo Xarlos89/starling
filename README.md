@@ -319,8 +319,6 @@ a native speaker, a store account, or a design decision.
   see [docs/AUDIT.md](docs/AUDIT.md) for where to start. The check-in timer
   is the newest thing to look at: its deadline rides inside every post and
   sits on the phone in plaintext while it runs.
-- A release with what CHANGELOG.md lists under Unreleased, the check-in timer
-  among it. It is in the source and not yet in an APK or on F-Droid.
 - Native-speaker review of the German (#14), French (#15) and Brazilian
   Portuguese (#16) catalogs. They ship as first passes; Spanish went through
   a line by line review (#1) and the other three want the same. The strings
