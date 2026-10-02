@@ -4,6 +4,9 @@
 // with: node tools/extract-strings.mjs
 // Missing entries fall back to English by design.
 export const de = {
+  "SOS and Do Not Disturb": "SOS und „Bitte nicht stören“",
+  "An SOS from your circle rings through Do Not Disturb when alarms are allowed. To let it through total silence too, turn on Override Do Not Disturb for Emergency alerts.": "Ein SOS aus deinem Kreis klingelt trotz „Bitte nicht stören“, wenn Alarme erlaubt sind. Damit es auch bei völliger Stille durchkommt, schalte bei Notfall-Hinweise „Bitte nicht stören“ ignorieren ein.",
+  "Open emergency alert settings": "Einstellungen für Notfall-Hinweise öffnen",
   "{dist} to the {way} of you": "{dist} Richtung {way}",
   "{failed} of {total} members did not get the new keys yet.": "{failed} von {total} Mitgliedern haben die neuen Schlüssel noch nicht bekommen.",
   "{n} members' keys changed": "Schlüssel von {n} Mitgliedern geändert",

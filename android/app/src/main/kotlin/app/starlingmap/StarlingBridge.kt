@@ -80,6 +80,11 @@ class StarlingBridge(private val app: Context) {
             .apply()
     }
 
+    @JavascriptInterface
+    fun openSosChannelSettings() {
+        ui { it.openSosChannelSettings() }
+    }
+
     // Ask for POST_NOTIFICATIONS outside the share flow: a member who only
     // ever watches never starts a share, and they are exactly who an SOS
     // notification is for. No-op where already granted or below API 33.

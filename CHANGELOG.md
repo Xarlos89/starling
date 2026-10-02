@@ -82,6 +82,11 @@ All notable changes to Starling are recorded here. Versions follow
   stopped the moment a code reads. The app asks for the camera on the tap and
   grants it to the bundled page only. On the website the scanner is off,
   since the site's headers deny the camera; the code still shows there.
+- **An SOS rings through Do Not Disturb.** On Android an SOS from your circle
+  now posts as an alarm. A phone in Do Not Disturb still rings for it when
+  alarms are allowed, which is the default, and it plays at the alarm volume.
+  To let it through total silence too, open Settings and use the button under
+  Places and alerts. The notification text is the same generic line as before.
 
 ## [0.15.2]
 

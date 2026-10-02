@@ -216,6 +216,22 @@ freeze delay cut to 60 seconds froze twice and was woken twice; over 160
 seconds the relay accepted 40 posts, with no errors and no gap longer than
 five seconds. The image's own WebView is 66, which gets the update screen.
 
+## Notifications
+
+### An SOS rings through Do Not Disturb
+
+An SOS from your circle posts on its own "Emergency alerts" channel. It plays
+the ringtone with a pulsing vibration, and it goes out as an alarm: alarm
+audio usage and the alarm category. Do Not Disturb holds ordinary
+notifications back and lets alarms through by default. So an SOS at 2 am
+still reaches a phone in Do Not Disturb, and it plays at the alarm volume.
+Total silence still holds it back. Settings has a button under Places and
+alerts that opens the channel page in system settings, where "Override Do Not
+Disturb" lets it through even then. The text is the same generic line as
+before. The sound of a channel is fixed once the channel exists, so the alarm
+channel has a new id (`events_sos_alarm`). The first SOS deletes the old
+`events_sos` channel and the panic wipe deletes both.
+
 ## Sharing with the screen off
 
 Everything that seals and posts a position runs in the page, and a WebView

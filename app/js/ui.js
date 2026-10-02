@@ -2325,6 +2325,29 @@ export function openSettingsSheet({ api, values, demo, tor, keepSharing, backgro
       onChange: (v) => onChange("batAlerts", v),
     }),
   );
+  if (typeof native()?.openSosChannelSettings === "function") {
+    const box = el("div", "field");
+    box.dataset.testid = "settings-sos-dnd";
+    const open = btn("btn btn-secondary", "Open emergency alert settings");
+    open.dataset.testid = "settings-sos-dnd-open";
+    open.addEventListener("click", () => {
+      try {
+        native()?.openSosChannelSettings?.();
+      } catch {
+        // the system screen is missing on this phone; nothing else to offer
+      }
+    });
+    box.append(
+      el("span", "field-label", "SOS and Do Not Disturb"),
+      el(
+        "p",
+        "field-note",
+        "An SOS from your circle rings through Do Not Disturb when alarms are allowed. To let it through total silence too, turn on Override Do Not Disturb for Emergency alerts.",
+      ),
+      open,
+    );
+    gAlerts.append(box);
+  }
 
   // Map
   const gMap = group("Map");

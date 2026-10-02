@@ -40,7 +40,9 @@ class MainActivity : FragmentActivity() {
         // sound and vibration are as fixed after creation as its importance
         // is, so an existing install's routine channel can never grow the
         // SOS-specific alert this one exists for.
-        const val SOS_CHANNEL = "events_sos"
+        const val SOS_CHANNEL = "events_sos_alarm"
+        // The SOS channel before it used alarm audio; deleted on first use.
+        const val OLD_SOS_CHANNEL = "events_sos"
         const val EVENTS_NOTIF_ID = 2
         const val PREF_STOP_ROUTE = "stop_route"
         const val PREF_STOP_TS = "stop_ts"
@@ -236,6 +238,18 @@ class MainActivity : FragmentActivity() {
         val direct = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))
         if (runCatching { startActivity(direct) }.isSuccess) return
         runCatching { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
+    }
+
+    // Where a person can let an SOS through total silence, not only alarms-allowed.
+    fun openSosChannelSettings() {
+        val channel = Events.ensureSosChannel(this)
+        runCatching {
+            startActivity(
+                Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                    .putExtra(Settings.EXTRA_CHANNEL_ID, channel),
+            )
+        }
     }
 
     // "Restricted" is only undone on the app's own page in system settings.

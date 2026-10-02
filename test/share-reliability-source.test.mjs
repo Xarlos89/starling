@@ -232,10 +232,10 @@ test("the wipe stops the share first, deletes each channel on its own, and kills
   assert.ok(at("LocationService.stop(ctx)") < at("KeystoreVault.deleteKey()"));
   assert.ok(at("KeystoreVault.deleteKey()") < at("deleteNotificationChannel"));
   assert.ok(at("deleteNotificationChannel") < at("clearApplicationUserData()"));
-  // Deleting "share" throws while its foreground service is up; that must not keep the other two.
+  // Deleting "share" throws while its foreground service is up; that must not keep the others.
   assert.match(
     wipe,
-    /for \(id in listOf\(LocationService\.CHANNEL, MainActivity\.EVENTS_CHANNEL, MainActivity\.SOS_CHANNEL\)\) \{\s*runCatching \{ nm\.deleteNotificationChannel\(id\) \}\s*\}/,
+    /for \(id in listOf\(\s*LocationService\.CHANNEL,\s*MainActivity\.EVENTS_CHANNEL,\s*MainActivity\.SOS_CHANNEL,\s*MainActivity\.OLD_SOS_CHANNEL,\s*\)\) \{\s*runCatching \{ nm\.deleteNotificationChannel\(id\) \}\s*\}/,
   );
   assert.equal((wipe.match(/deleteNotificationChannel/g) || []).length, 1, "no channel deleted outside the loop");
 });

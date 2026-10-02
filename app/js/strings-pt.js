@@ -4,6 +4,9 @@
 // Regenerate the key list with: node tools/extract-strings.mjs
 // Missing entries fall back to English by design.
 export const pt = {
+  "SOS and Do Not Disturb": "SOS e Não perturbe",
+  "An SOS from your circle rings through Do Not Disturb when alarms are allowed. To let it through total silence too, turn on Override Do Not Disturb for Emergency alerts.": "Um SOS do seu círculo toca mesmo com o Não perturbe ativo, quando os alarmes são permitidos. Para que ele toque também no silêncio total, ative Ignorar Não perturbe em Alertas de emergência.",
+  "Open emergency alert settings": "Abrir configurações de alertas de emergência",
   "{dist} to the {way} of you": "{dist} ao {way} de você",
   "{failed} of {total} members did not get the new keys yet.": "{failed} de {total} membros ainda não receberam as novas chaves.",
   "{n} members' keys changed": "As chaves de {n} membros mudaram",

@@ -21,7 +21,12 @@ object Wipe {
         // and their labels name the app's features. Remove the residue, each
         // on its own so one refusal cannot keep the others.
         val nm = ctx.getSystemService(NotificationManager::class.java)
-        for (id in listOf(LocationService.CHANNEL, MainActivity.EVENTS_CHANNEL, MainActivity.SOS_CHANNEL)) {
+        for (id in listOf(
+            LocationService.CHANNEL,
+            MainActivity.EVENTS_CHANNEL,
+            MainActivity.SOS_CHANNEL,
+            MainActivity.OLD_SOS_CHANNEL,
+        )) {
             runCatching { nm.deleteNotificationChannel(id) }
         }
         // Kills the process and deletes all app data, WebView storage and

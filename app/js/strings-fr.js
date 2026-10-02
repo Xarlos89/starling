@@ -4,6 +4,9 @@
 // node tools/extract-strings.mjs
 // Missing entries fall back to English by design.
 export const fr = {
+  "SOS and Do Not Disturb": "SOS et Ne pas déranger",
+  "An SOS from your circle rings through Do Not Disturb when alarms are allowed. To let it through total silence too, turn on Override Do Not Disturb for Emergency alerts.": "Un SOS de votre cercle sonne malgré Ne pas déranger quand les alarmes sont autorisées. Pour qu'il passe aussi en silence total, activez « Ignorer le mode Ne pas déranger » pour Alertes d'urgence.",
+  "Open emergency alert settings": "Ouvrir les paramètres des alertes d'urgence",
   "Invite QR code": "Code QR d'invitation",
   "{who} is answering with different keys. That is a reinstall, or somebody else in their place, and this phone cannot tell which. Their location stays off your map until you accept.": "{who} répond avec des clés différentes. C'est une réinstallation, ou quelqu'un d'autre à sa place, et ce téléphone ne peut pas faire la différence. Sa position reste hors de votre carte tant que vous n'acceptez pas.",
   "Ask {who} to read out the number on their screen. If it is the new one, accept it. If it is the old one, or they did not reinstall, remove them.": "Demandez à {who} de vous lire le numéro affiché sur son écran. Si c'est le nouveau, acceptez-le. Si c'est l'ancien, ou s'il n'y a pas eu de réinstallation, retirez cette personne du cercle.",

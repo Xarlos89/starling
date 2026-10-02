@@ -30,9 +30,9 @@ object Events {
         ) {
             return
         }
-        val channelId = if (urgent) MainActivity.SOS_CHANNEL else MainActivity.EVENTS_CHANNEL
         val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.createNotificationChannel(buildChannel(ctx, channelId, urgent))
+        val channelId = if (urgent) ensureSosChannel(ctx) else MainActivity.EVENTS_CHANNEL
+        if (!urgent) nm.createNotificationChannel(buildChannel(ctx, channelId, false))
         val open = PendingIntent.getActivity(
             ctx,
             0,
@@ -56,7 +56,13 @@ object Events {
             .setAutoCancel(true)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPublicVersion(publicVersion)
-            .apply { if (urgent) priority = NotificationCompat.PRIORITY_HIGH }
+            .apply {
+                if (urgent) {
+                    priority = NotificationCompat.PRIORITY_HIGH
+                    // Do Not Disturb lets alarms through by default and holds everything else back.
+                    setCategory(NotificationCompat.CATEGORY_ALARM)
+                }
+            }
             .build()
         nm.notify(tag.ifEmpty { "event" }, MainActivity.EVENTS_NOTIF_ID, n)
     }
@@ -67,10 +73,11 @@ object Events {
         if (urgent) {
             // A ringtone, not the default notification ding, and a pattern
             // that keeps pulsing: this is the one channel in the app that
-            // must not read like every other alert.
+            // must not read like every other alert. Alarm usage is what lets
+            // it through Do Not Disturb, and it plays at the alarm volume.
             val sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
             val attrs = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                .setUsage(AudioAttributes.USAGE_ALARM)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build()
             channel.setSound(sound, attrs)
@@ -78,6 +85,15 @@ object Events {
             channel.vibrationPattern = SOS_VIBRATION
         }
         return channel
+    }
+
+    // Creates the SOS channel and retires the one from before alarm usage,
+    // whose sound attributes could never change in place. Returns its id.
+    fun ensureSosChannel(ctx: Context): String {
+        val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        runCatching { nm.deleteNotificationChannel(MainActivity.OLD_SOS_CHANNEL) }
+        nm.createNotificationChannel(buildChannel(ctx, MainActivity.SOS_CHANNEL, true))
+        return MainActivity.SOS_CHANNEL
     }
 
     fun cancel(ctx: Context, tag: String) {

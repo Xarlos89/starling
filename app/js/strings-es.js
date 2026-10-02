@@ -4,6 +4,9 @@
 // node tools/extract-strings.mjs
 // Missing entries fall back to English by design.
 export const es = {
+  "SOS and Do Not Disturb": "SOS y No molestar",
+  "An SOS from your circle rings through Do Not Disturb when alarms are allowed. To let it through total silence too, turn on Override Do Not Disturb for Emergency alerts.": "Un SOS de tu círculo suena con No molestar activado si las alarmas están permitidas. Para que suene también en silencio total, activa Ignorar No molestar en Alertas de emergencia.",
+  "Open emergency alert settings": "Abrir ajustes de alertas de emergencia",
   "Invite QR code": "Código QR de invitación",
   "{who} is answering with different keys. That is a reinstall, or somebody else in their place, and this phone cannot tell which. Their location stays off your map until you accept.": "{who} está respondiendo con claves distintas. Puede ser una reinstalación, o puede ser otra persona en su lugar, y este teléfono no puede distinguirlo. Su ubicación queda fuera de tu mapa hasta que aceptes.",
   "Ask {who} to read out the number on their screen. If it is the new one, accept it. If it is the old one, or they did not reinstall, remove them.": "Pídele a {who} que te lea el número que ve en su pantalla. Si es el nuevo, acéptalo. Si es el viejo, o no reinstaló la app, quítalo del círculo.",

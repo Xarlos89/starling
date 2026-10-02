@@ -320,7 +320,14 @@ than Cloudflare can run their own relay; see the FAQ and
     but a phone with the app swiped away, frozen by the OS, or powered off
     sees the alert on the next open. Life360-grade "the push wakes the phone
     no matter what" is exactly the tradeoff Starling refuses, because the
-    token that buys it is an address a server holds for you.
+    token that buys it is an address a server holds for you. An SOS is the
+    one alert that is loud on purpose: it goes out on its own "Emergency
+    alerts" channel as an alarm (alarm audio usage and the alarm category),
+    so Do Not Disturb lets it through wherever alarms are allowed, which is
+    Android's default, and it plays at the alarm volume. Its text is the
+    same generic line as every other alert. Settings, Places and alerts
+    opens that channel's system page for anyone who wants it through total
+    silence as well.
 17. **The sharing notification itself is a leak Android requires.** While
     you share, Android requires a visible, un-dismissable foreground
     notification ("Sharing with your circle") for as long as the location
