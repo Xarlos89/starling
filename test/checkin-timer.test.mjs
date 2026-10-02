@@ -1,6 +1,4 @@
-// The check-in timer against the real main.js and net.js: the deadline rides
-// inside every post while it runs, only a check-in clears it, and the
-// receivers are the ones who notice it was missed.
+// The check-in timer against the real main.js and net.js.
 import test from "node:test";
 import assert from "node:assert/strict";
 

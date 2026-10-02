@@ -8,8 +8,7 @@
 // No build step, no external service: catalogs are plain modules, shipped
 // with the app like everything else.
 
-// Loaded only once chosen, so a help link on a weak connection does not pull
-// every language before it can draw.
+// Loaded on demand: a help link on a weak connection should not pull every language.
 const CODES = ["es", "de", "fr", "pt"];
 const CATALOGS = {};
 

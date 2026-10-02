@@ -63,8 +63,7 @@ export function statusOf(rec, now) {
   return "live";
 }
 
-// What a person sees: an SOS stays one until a bye or a later message, even
-// when the phone goes quiet. statusOf stays the wire truth the help viewer reads.
+// A quiet SOS stays an SOS on screen; statusOf stays the wire truth the help viewer reads.
 export function displayStatus(rec, now) {
   if (rec.type === "sos") return "sos";
   return overdue(rec, now) ? "overdue" : statusOf(rec, now);

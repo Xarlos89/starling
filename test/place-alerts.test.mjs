@@ -1,5 +1,4 @@
-// Per-place alert choices, run through the real checkAlerts with a member's
-// positions arriving the way they do off the wire.
+// Per-place alert choices through the real roster and checkAlerts.
 import test from "node:test";
 import assert from "node:assert/strict";
 
@@ -49,8 +48,7 @@ async function circleWith(places) {
   await internals.savePlaces();
 }
 
-// Walks one member from far away, into the place, and back out, and returns
-// every place notification the walk produced.
+// Far away, into the place, and back out; returns the place notifications.
 async function walk(who) {
   const calls = [];
   globalThis.StarlingNative = {

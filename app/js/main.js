@@ -5769,7 +5769,6 @@ async function sendLoc(force = false) {
   pulseWrapper();
 }
 
-// This phone's own last battery reading, and whether its card was waved off.
 let ownBat = null;
 let ownBatHidden = false;
 

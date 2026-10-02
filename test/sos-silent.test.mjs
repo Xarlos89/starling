@@ -1,5 +1,4 @@
-// An SOS whose phone dies mid-emergency is still an SOS to the people
-// watching, and an incoming one stays on the sheet until it is answered.
+// An SOS whose phone goes quiet is still an SOS to the people watching.
 import test from "node:test";
 import assert from "node:assert/strict";
 

@@ -34,7 +34,6 @@ export function fmtRelTime(msAgo) {
   return `${Math.floor(h / 24)} d`;
 }
 
-// A wall-clock time in the app's language, like 21:30 or 9:30 PM.
 export function fmtClock(ms) {
   if (!Number.isFinite(ms)) return "";
   return new Intl.DateTimeFormat(currentLocale(), { hour: "numeric", minute: "2-digit" }).format(ms);

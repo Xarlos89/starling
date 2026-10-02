@@ -1,6 +1,4 @@
-// The help link page's lines for a helper, and the beacon post they are
-// read from. helpview.js is imported before the page stub exists, so it
-// does not boot itself here.
+// helpview.js is imported before the page stub exists, so it does not boot itself here.
 import test from "node:test";
 import assert from "node:assert/strict";
 
