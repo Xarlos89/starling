@@ -335,6 +335,8 @@ than Cloudflare can run their own relay; see the FAQ and
     and later let a person swipe it away on an unlocked phone while the
     service keeps running, so Starling puts it straight back for as long as
     the share runs: hiding that a phone is sharing takes ending the share.
+    If you find a way to hide it while the share goes on, please report it
+    the way SECURITY.md asks.
     Anyone holding the phone, locked or not, learns from it alone that
     Starling is installed and is transmitting your position right now.
     That notification also carries a Stop button. On Android 12 and up,
@@ -525,11 +527,11 @@ and why none of it weakens the core claim (the relay never sees a position).
   the entire time it runs. Android 14 and later let that notification be
   swiped away on an unlocked phone; Starling posts it again at once while
   the share runs. This is a design constraint the app leans into rather than
-  works around: sharing is never silent, matching the same "always show a live sharing indicator"
-  principle from the web app's design consequences above. The service
-  requests fine and coarse location while-in-use only; it does not request
-  `ACCESS_BACKGROUND_LOCATION`, and it only starts while the app has
-  foreground state to begin with.
+  works around: sharing is never silent, matching the same "always show a
+  live sharing indicator" principle from the web app's design consequences
+  above. The service requests fine and coarse location while-in-use only; it
+  does not request `ACCESS_BACKGROUND_LOCATION`, and it only starts while
+  the app has foreground state to begin with.
 - **Keeping the page running with the screen off.** Chromium freezes a
   hidden page after a minute or five, which stopped every share whose phone
   was put down. During a share the wrapper makes the page visible to

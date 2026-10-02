@@ -328,10 +328,11 @@ a native speaker, a store account, or a design decision.
   cover the check-in timer and the SOS card, place alerts and the help link
   page, the Do Not Disturb setting, the share reminder with its Android
   notification, and the invite scanner. One file per language in
-  `app/js/strings-*.js`, English on the left. More
-  languages are welcome: `node tools/extract-strings.mjs` prints the full
-  catalog for a new one, and a test holds every catalog to full coverage.
-  RTL layout polish lands with the first RTL translation.
+  `app/js/strings-*.js`, English on the left. The Android notifications
+  have their own `strings.xml` per language under `android/app/src/main/res/`.
+  More languages are welcome: `node tools/extract-strings.mjs` prints the
+  full catalog for a new one, and a test holds every catalog to full
+  coverage. RTL layout polish lands with the first RTL translation.
 - Google Play, still not live.
 - Being visible to more than one circle at once. Precision and cadence are
   per circle now; sharing itself still goes to the active circle only, and
