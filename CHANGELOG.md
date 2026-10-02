@@ -3,7 +3,7 @@
 All notable changes to Starling are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
-## [Unreleased]
+## [0.16.0]
 
 - **Check-in timer.** A new button next to People and keys and Places sets a
   deadline from 30 minutes to 8 hours. While it runs, every post carries the
