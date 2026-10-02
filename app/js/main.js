@@ -458,9 +458,7 @@ const myHue = () => (state.identity ? hueFromMemberId(state.identity.memberId) :
 // ------------------------------------------------------------------ theme
 
 const mqLight = matchMedia("(prefers-color-scheme: light)");
-// The wrapper's WebView settles prefers-color-scheme once, when it is built,
-// so there the phone's dark mode comes from the bridge, and so does word of a
-// change.
+// The wrapper's WebView settles prefers-color-scheme when it is built, so there the bridge answers.
 function systemLight() {
   try {
     const n = native();
@@ -3701,8 +3699,7 @@ function showRelayMismatch(relay) {
   );
 }
 
-// The paste field and the scanner read an invite the same way: a whole
-// link, a bare fragment, or "j=..." on its own.
+// A whole link, a bare fragment, or "j=..." on its own, for the paste field and the scanner alike.
 function inviteFromText(text) {
   const s = String(text ?? "").trim();
   const idx = s.indexOf("#j=");

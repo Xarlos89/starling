@@ -63,8 +63,7 @@ class StarlingBridge(private val app: Context) {
     var barsLight: Boolean? = null
         private set
 
-    // The phone's dark mode now. The WebView settles prefers-color-scheme
-    // once, when it is built, and this page can outlive that by days.
+    // WebView settles prefers-color-scheme when it is built, and this page can outlive that by days.
     @JavascriptInterface
     fun systemDark(): Boolean =
         (app.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
@@ -79,8 +78,7 @@ class StarlingBridge(private val app: Context) {
 
     // --------------------------------------------------------- share reminder
 
-    // ms from now, held between a minute and a day. The page calls it only
-    // for a stop the person chose, and cancels it when a share starts.
+    // ms from now, held between a minute and a day.
     @JavascriptInterface
     fun remindShareIn(ms: Long) = ShareReminder.schedule(app, ms)
 
@@ -184,9 +182,7 @@ class StarlingBridge(private val app: Context) {
 
     // ----------------------------------------------------------------- share
 
-    // The system share sheet, which Android System WebView does not give the
-    // page as navigator.share. False with no window on screen to start it
-    // from, so the page can copy instead.
+    // Android System WebView has no navigator.share. False with no window, so the page copies instead.
     @JavascriptInterface
     fun shareText(text: String): Boolean {
         val a = activity ?: return false

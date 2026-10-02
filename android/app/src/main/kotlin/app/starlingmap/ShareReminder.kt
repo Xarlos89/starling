@@ -7,11 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
 
-// "Remind me if sharing stays off", for a person who stopped sharing on
-// purpose and asked to hear about it later. A windowed alarm needs no
-// exact-alarm permission; a plain inexact one may run 75% late, which on
-// 12 hours is most of a day. A phone restart drops it, since the app does
-// not listen for boot.
+// Windowed, not exact: no exact-alarm permission, and a plain inexact alarm may run 75% late.
 object ShareReminder {
     const val TAG = "remind"
     private const val MIN_MS = 60_000L

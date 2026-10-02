@@ -155,9 +155,7 @@ function corsHeaders(origin, env, url) {
   return { "access-control-allow-origin": origin, vary: "origin" };
 }
 
-// The body as text, or null past `limit` bytes. An isolate serves many
-// requests in 128 MB, so a large post is refused on its declared length, or
-// cut off one chunk past the limit, and never buffered whole.
+// Null past `limit` bytes, never buffering the rest: one isolate serves many requests in 128 MB.
 async function readCapped(request, limit) {
   const declared = Number(request.headers.get("content-length"));
   if (Number.isFinite(declared) && declared > limit) return null;

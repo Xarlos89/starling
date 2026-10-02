@@ -125,8 +125,7 @@ object PageHost {
             WebView.setWebContentsDebuggingEnabled(true)
         }
 
-        // The application context alone carries the platform's default light
-        // theme, and WebView reads isLightTheme for prefers-color-scheme.
+        // WebView reads isLightTheme for prefers-color-scheme, and a bare app context's theme is always light.
         val view = WebView(ContextThemeWrapper(app, R.style.Theme_Starling))
         webView = view
         loader = WebViewAssetLoader.Builder()

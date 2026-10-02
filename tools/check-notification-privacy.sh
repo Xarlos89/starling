@@ -24,8 +24,7 @@ if grep -nE '\.setContentTitle\(title\)|setContentText\(body\)' "$events" >/dev/
   fail=1
 fi
 
-# Every event notification is built in show(), which takes string resource
-# ids, so a title or body handed to post() has no way into a field.
+# show() takes string resource ids, so a title or body handed to post() has no way into a field.
 if ! grep -qE 'private fun show\(ctx: Context, @StringRes titleRes: Int, @StringRes textRes: Int,' "$events"; then
   echo "Events.kt's notification builder no longer takes string resource ids only"
   fail=1

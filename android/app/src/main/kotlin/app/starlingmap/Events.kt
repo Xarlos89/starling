@@ -98,8 +98,7 @@ object Events {
         return channel
     }
 
-    // Creates the SOS channel and retires the one from before alarm usage,
-    // whose sound attributes could never change in place. Returns its id.
+    // A channel's sound attributes never change in place, so the pre-alarm channel is retired.
     fun ensureSosChannel(ctx: Context): String {
         val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         runCatching { nm.deleteNotificationChannel(MainActivity.OLD_SOS_CHANNEL) }

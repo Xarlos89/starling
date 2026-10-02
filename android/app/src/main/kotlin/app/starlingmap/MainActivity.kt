@@ -203,8 +203,7 @@ class MainActivity : FragmentActivity() {
 
     // --------------------------------------------------------------- theme
 
-    // Edge to edge from Android 15 the bars are drawn over the page, so only
-    // the icons can follow it; below that the bars keep a color of their own.
+    // Below Android 15 the bars still have a color of their own; edge to edge, only the icons.
     fun setBarsLight(light: Boolean) {
         val bars = WindowCompat.getInsetsController(window, window.decorView)
         bars.isAppearanceLightStatusBars = light

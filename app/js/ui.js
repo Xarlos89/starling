@@ -636,8 +636,7 @@ async function copyLink(link, msg) {
 }
 
 // The OS share sheet is the fast path under stress: it reaches the messaging
-// apps someone already has open. Clipboard is the fallback. The Android
-// wrapper's WebView has no navigator.share, so there the bridge opens it.
+// apps someone already has open. Clipboard is the fallback.
 export async function shareLink(link, lead, msg) {
   const text = `${t(lead)} ${link}`;
   try {
@@ -1014,8 +1013,7 @@ export function openSafetyQrSheet({ text, qrSvgFor }) {
 // The camera, drawn to a canvas a few times a second and handed to the
 // decoder. Every track stops the moment a code reads or the sheet closes,
 // and no frame leaves the page.
-// `check` turns away a code without closing: it returns words to show and
-// the camera keeps looking, or null to take the code.
+// `check` returns words to show while the camera keeps looking, or null to take the code.
 export function openScanSheet({ api, onResult, onClose, check, title, note }) {
   const words = { title: "Scan their code", note: "Point the camera at the code on their screen." };
   let stream = null;
