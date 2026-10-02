@@ -147,7 +147,7 @@ import { haversineMeters, coarsePos, hueFromMemberId, fmtRelTime, fmtClock } fro
 import { parseHealth, shareProblems, sentNote, noteAfter, sendErrorKind, shareReport } from "./sharehealth.js";
 import { VERSION } from "./version.js";
 import { createDemo, demoPlaces, DEMO_CENTER } from "./demo.js";
-import { t, translateDom, setLocale, resolveLocale, LOCALE_CHOICES } from "./i18n.js";
+import { t, translateDom, loadLocale, setLocale, resolveLocale, LOCALE_CHOICES } from "./i18n.js";
 
 // Error collector so automated checks can read back anything that went wrong.
 window.__starlingErrors = [];
@@ -4935,7 +4935,9 @@ async function onSettingChange(key, value) {
     await dbSet("settings", state.settings);
     if (key === "theme") applyTheme();
     if (key === "lang") {
-      setLocale(resolveLocale(value));
+      const code = resolveLocale(value);
+      await loadLocale(code).catch((e) => window.__starlingErrors.push(`locale: ${String(e)}`));
+      setLocale(code);
       translateDom();
       ui.toast(t("Language saved. Reopen settings to see them translated too."));
     }
@@ -6774,7 +6776,9 @@ async function boot() {
   applyTheme();
   // Language before anything paints: every screen starts hidden, so the
   // static page translates exactly once with no flash of English.
-  setLocale(resolveLocale(state.settings.lang));
+  const locale = resolveLocale(state.settings.lang);
+  await loadLocale(locale).catch((e) => window.__starlingErrors.push(`locale: ${String(e)}`));
+  setLocale(locale);
   translateDom();
 
   if (!shareCapable()) {

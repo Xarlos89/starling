@@ -8,13 +8,11 @@ import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { t, setLocale, resolveLocale, norm, LOCALE_CHOICES } from "../app/js/i18n.js";
-import { es } from "../app/js/strings-es.js";
-import { de } from "../app/js/strings-de.js";
-import { fr } from "../app/js/strings-fr.js";
-import { pt } from "../app/js/strings-pt.js";
+import { t, loadLocale, setLocale, resolveLocale, currentLocale, norm, LOCALE_CHOICES } from "../app/js/i18n.js";
 
-const CATALOGS = { es, de, fr, pt };
+// Read as data for the coverage checks; the app itself only gets them through loadLocale.
+const CATALOGS = {};
+for (const code of ["es", "de", "fr", "pt"]) CATALOGS[code] = (await import(`../app/js/strings-${code}.js`))[code];
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -36,9 +34,11 @@ test("resolveLocale honors explicit choices and falls back to English", () => {
   assert.ok(["en", ...Object.keys(CATALOGS)].includes(resolveLocale("auto")));
 });
 
-test("every catalog translates the core vocabulary and leaves user text alone", () => {
+test("every catalog translates the core vocabulary and leaves user text alone", async () => {
   for (const code of Object.keys(CATALOGS)) {
+    await loadLocale(code);
     setLocale(code);
+    assert.equal(currentLocale(), code);
     assert.notEqual(t("Locked"), "Locked", `${code}: a core string is actually translated`);
     assert.notEqual(t("Start sharing"), "Start sharing", code);
     assert.equal(t("Wren's own words 12345"), "Wren's own words 12345", "unknown text passes through");
@@ -47,6 +47,29 @@ test("every catalog translates the core vocabulary and leaves user text alone", 
   }
   setLocale("en");
   assert.equal(t("Locked"), "Locked");
+});
+
+test("a catalog loads only when its language is chosen", async () => {
+  const src = readFileSync(path.join(ROOT, "app/js/i18n.js"), "utf8");
+  assert.doesNotMatch(src, /from "\.\/strings-/, "no catalog is in the static import graph");
+
+  const fresh = await import("../app/js/i18n.js?lazy");
+  fresh.setLocale("de");
+  assert.equal(fresh.currentLocale(), "en", "a language whose catalog is not loaded stays English, not half translated");
+  assert.equal(fresh.t("Locked"), "Locked");
+
+  await fresh.loadLocale("de");
+  fresh.setLocale("de");
+  assert.equal(fresh.currentLocale(), "de");
+  assert.notEqual(fresh.t("Locked"), "Locked");
+
+  fresh.setLocale("es");
+  assert.equal(fresh.currentLocale(), "en", "loading German did not bring Spanish with it");
+  await fresh.loadLocale("en");
+  await fresh.loadLocale("../strings-es");
+  fresh.setLocale("es");
+  assert.equal(fresh.currentLocale(), "en", "English and unknown codes load nothing");
+  fresh.setLocale("en");
 });
 
 test("every catalog covers every extracted string, and carries nothing the app lost", () => {

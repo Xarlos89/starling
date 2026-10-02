@@ -37,6 +37,11 @@ All notable changes to Starling are recorded here. Versions follow
   expired notices are alerts, so a screen reader hears the session change. The
   battery is new on the beacon's posts and comes from the same reading the
   circle gets.
+- **Only your language loads.** The app and the help link page pulled all four
+  translations on every start, which on the help page was 283 KB of its 399 KB
+  of script before it could draw. A catalog now loads only when its language is
+  chosen, so an English help link fetches about 120 KB, and a language added
+  later costs nothing to the people who do not use it.
 - **German, French and Brazilian Portuguese.** The whole app, the Android
   notifications and the update-your-WebView screen, under Settings, Language
   or following the phone's language. These are first passes; Spanish had a

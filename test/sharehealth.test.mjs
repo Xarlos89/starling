@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 
 import { parseHealth, shareProblems, sentNote, noteAfter, sendErrorKind, shareReport, SENT_NOTE_MS } from "../app/js/sharehealth.js";
 import { STALE_MS } from "../app/js/net.js";
-import { setLocale } from "../app/js/i18n.js";
+import { loadLocale, setLocale } from "../app/js/i18n.js";
 
 test.after(() => setLocale("en"));
 
@@ -118,7 +118,8 @@ test("a share that never got a post out says so, after a grace minute", () => {
   assert.equal(sentNote({ lastOkAt: 0, startedAt: 0, now, staleMs: STALE_MS }), null, "no share, no note");
 });
 
-test("the sent note is translated", () => {
+test("the sent note is translated", async () => {
+  await loadLocale("es");
   setLocale("es");
   const now = 10_000_000;
   const note = sentNote({ lastOkAt: now - 2 * 60_000, startedAt: now - 3_600_000, now, staleMs: STALE_MS });

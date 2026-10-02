@@ -8,12 +8,10 @@
 // No build step, no external service: catalogs are plain modules, shipped
 // with the app like everything else.
 
-import { es } from "./strings-es.js";
-import { de } from "./strings-de.js";
-import { fr } from "./strings-fr.js";
-import { pt } from "./strings-pt.js";
-
-const CATALOGS = { es, de, fr, pt };
+// Loaded only once chosen, so a help link on a weak connection does not pull
+// every language before it can draw.
+const CODES = ["es", "de", "fr", "pt"];
+const CATALOGS = {};
 
 // Direction by locale, for the day an RTL catalog lands. The engine and the
 // document wiring are ready for it; the CSS keeps earning it separately.
@@ -37,15 +35,22 @@ export const norm = (s) => String(s).replace(/\s+/g, " ").trim();
 // takes the first language there is a catalog for; English wins ties because
 // it is the source.
 export function resolveLocale(pref) {
-  if (pref && pref !== "auto") return pref === "en" || CATALOGS[pref] ? pref : "en";
+  if (pref && pref !== "auto") return pref === "en" || CODES.includes(pref) ? pref : "en";
   for (const tag of navigator.languages || [navigator.language || "en"]) {
     const code = String(tag).slice(0, 2).toLowerCase();
     if (code === "en") return "en";
-    if (CATALOGS[code]) return code;
+    if (CODES.includes(code)) return code;
   }
   return "en";
 }
 
+export async function loadLocale(code) {
+  if (!CODES.includes(code) || CATALOGS[code]) return;
+  const mod = await import(`./strings-${code}.js`);
+  CATALOGS[code] = mod[code];
+}
+
+// A catalog that is not loaded yet leaves the page in English, never half way.
 export function setLocale(code) {
   activeCode = code === "en" || CATALOGS[code] ? code : "en";
   active = activeCode === "en" ? null : CATALOGS[activeCode];

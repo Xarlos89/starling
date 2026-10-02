@@ -765,6 +765,12 @@ def flow_help_beacon(b):
         if live != "polite":
             raise E2EError(f"the status word is not in a polite live region: {live!r}")
         log(f"helper reads {coords}, {expires}")
+        catalogs = c.exec(
+            "return performance.getEntriesByType('resource')"
+            ".map(function (e) { return e.name; }).filter(function (n) { return /strings-/.test(n); })")
+        if catalogs:
+            raise E2EError(f"an English helper page fetched language catalogs: {catalogs}")
+        log("English helper page fetched no language catalog")
 
         # The secret must not linger in the address bar or this browser's
         # history, where it would outlive the emergency and sync away.
