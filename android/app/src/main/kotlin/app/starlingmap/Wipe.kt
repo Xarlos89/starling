@@ -17,6 +17,7 @@ object Wipe {
         // Deleting the wrap key here is synchronous and in-process, so it is
         // done before the nuke rather than hoped for after it.
         KeystoreVault.deleteKey()
+        runCatching { ShareReminder.cancel(ctx) }
         // Notification channels live in system settings, outside app data,
         // and their labels name the app's features. Remove the residue, each
         // on its own so one refusal cannot keep the others.

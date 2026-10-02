@@ -12,6 +12,8 @@
     <string name="notif_swiped_text">Starling wurde geschlossen. Öffne es wieder, um weiter zu teilen.</string>
     <string name="notif_location_off">Der Standort ist auf diesem Handy aus. Schalte ihn ein, um weiter zu teilen.</string>
     <string name="notif_locked_text">Öffne Starling, um zu sehen, was passiert ist.</string>
+    <string name="notif_remind_title">Teilen ist aus</string>
+    <string name="notif_remind_text">Öffne Starling, um wieder zu teilen.</string>
     <string name="notif_stop">Stopp</string>
     <string name="bio_wrap_title">Bestätige, um die biometrische Entsperrung einzurichten</string>
     <string name="bio_unwrap_title">Starling entsperren</string>

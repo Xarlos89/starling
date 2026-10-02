@@ -2178,6 +2178,23 @@ export function openSettingsSheet({ api, values, demo, tor, keepSharing, backgro
     gShare.append(row);
   }
 
+  if (typeof native()?.remindShareIn === "function") {
+    const remind = segControl({
+      label: "Remind me if sharing stays off",
+      note: "If you stop sharing and do not turn it back on, this phone shows a notification after that long. Nothing goes to your circle.",
+      options: [
+        { value: 0, label: "Never" },
+        { value: 3_600_000, label: "1 h" },
+        { value: 4 * 3_600_000, label: "4 h" },
+        { value: 12 * 3_600_000, label: "12 h" },
+      ],
+      value: values.settings.shareReminder || 0,
+      onChange: (v) => onChange("shareReminder", v),
+    });
+    remind.dataset.testid = "settings-share-reminder";
+    gShare.append(remind);
+  }
+
   // Repainted on refresh: the change happens in a system screen with this sheet open.
   let paintBackground = null;
   if (background) {

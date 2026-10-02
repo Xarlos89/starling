@@ -204,6 +204,7 @@ const state = {
     lang: "auto", // UI language; "auto" follows the system, English is the source
     placeAlerts: true, // say when a member arrives at or leaves a saved place
     batAlerts: true, // say when a member's battery runs low
+    shareReminder: 0, // ms after a stop you chose before the phone says sharing is off; 0 is never
   },
   // Named spots that live only on this device; never sent anywhere. Loaded by
   // loadPlaces() under the same at-rest rule as the chain key.
@@ -4994,6 +4995,11 @@ async function panic() {
   // OS clear lands first, the process is gone before it matters, and on an
   // older wrapper without the method it is the whole wipe, as before.
   try {
+    native()?.cancelShareReminder?.();
+  } catch {
+    // old wrapper
+  }
+  try {
     native()?.panicWipe?.();
   } catch {
     // old wrapper, or a native wipe that threw before its clear
@@ -5099,6 +5105,11 @@ async function setSharing(on, { keepArmed = false } = {}) {
   }
   if (on === state.sharing) return;
   if (on) {
+    try {
+      native()?.cancelShareReminder?.();
+    } catch {
+      // older wrapper
+    }
     state.sharing = true;
     state.geoDenied = false;
     state.geoFailed = false;
@@ -5151,6 +5162,15 @@ async function setSharing(on, { keepArmed = false } = {}) {
     // Synchronous, before any await: a kept share held the lock off, and a page
     // with no window cannot promise to get past the next await.
     armAutoLock();
+    // Only a stop the person chose. One Android made comes back by itself.
+    const remindMs = state.settings.shareReminder;
+    if (!keepArmed && remindMs > 0) {
+      try {
+        native()?.remindShareIn?.(remindMs);
+      } catch {
+        // older wrapper
+      }
+    }
     // This path is every deliberate end: the toggle, the notification's Stop,
     // the timer, a circle switch, a lock. None of them should come back by
     // themselves on the next open, unless Android ended it.

@@ -84,5 +84,9 @@
             android:name=".LocationService"
             android:exported="false"
             android:foregroundServiceType="location" />
+
+        <receiver
+            android:name=".ShareReminderReceiver"
+            android:exported="false" />
     </application>
 </manifest>

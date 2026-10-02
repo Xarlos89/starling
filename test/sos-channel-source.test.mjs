@@ -38,11 +38,11 @@ test("the SOS channel plays as an alarm, under an id the ringtone channel never 
 
 test("an urgent notification is an alarm, posted on the new channel after the old one is gone", () => {
   const events = kt("Events.kt");
-  const post = fn(events, "post");
-  assert.match(post, /if \(urgent\) ensureSosChannel\(ctx\)/);
-  assert.match(post, /if \(urgent\) \{[^}]*setCategory\(NotificationCompat\.CATEGORY_ALARM\)/);
-  assert.equal((post.match(/CATEGORY_ALARM/g) || []).length, 1, "routine events stay out of the alarm category");
-  assert.match(post, /R\.string\.notif_sos_text/, "the text stays the generic line");
+  const show = fn(events, "show");
+  assert.match(show, /if \(urgent\) ensureSosChannel\(ctx\)/);
+  assert.match(show, /if \(urgent\) \{[^}]*setCategory\(NotificationCompat\.CATEGORY_ALARM\)/);
+  assert.equal((events.match(/CATEGORY_ALARM/g) || []).length, 1, "routine events stay out of the alarm category");
+  assert.match(fn(events, "post"), /if \(urgent\) R\.string\.notif_sos_text else R\.string\.notif_locked_text/, "the text stays the generic line");
   const ensure = fn(events, "ensureSosChannel");
   assert.ok(
     ensure.indexOf("deleteNotificationChannel(MainActivity.OLD_SOS_CHANNEL)") <

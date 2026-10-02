@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.media.RingtoneManager
+import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 
@@ -25,6 +26,16 @@ object Events {
 
     fun post(ctx: Context, title: String, body: String, tag: String, urgent: Boolean = false) {
         if (title.isEmpty()) return
+        // title/body never reach a notification field; see the commit message for why.
+        show(ctx, R.string.app_name, if (urgent) R.string.notif_sos_text else R.string.notif_locked_text, tag, urgent)
+    }
+
+    // The share reminder (ShareReminder). Its words say nothing about a circle or a person.
+    fun postShareOff(ctx: Context) =
+        show(ctx, R.string.notif_remind_title, R.string.notif_remind_text, ShareReminder.TAG, false)
+
+    // String resources only, so nothing a caller was handed can reach a notification field.
+    private fun show(ctx: Context, @StringRes titleRes: Int, @StringRes textRes: Int, tag: String, urgent: Boolean) {
         if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
         ) {
@@ -39,18 +50,18 @@ object Events {
             Intent(ctx, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE,
         )
-        // title/body never reach a notification field; see the commit message for why.
-        val text = ctx.getString(if (urgent) R.string.notif_sos_text else R.string.notif_locked_text)
+        val heading = ctx.getString(titleRes)
+        val text = ctx.getString(textRes)
         val publicVersion = NotificationCompat.Builder(ctx, channelId)
             .setSmallIcon(R.drawable.ic_stat_starling)
-            .setContentTitle(ctx.getString(R.string.app_name))
+            .setContentTitle(heading)
             .setContentText(text)
             .setContentIntent(open)
             .setAutoCancel(true)
             .build()
         val n = NotificationCompat.Builder(ctx, channelId)
             .setSmallIcon(R.drawable.ic_stat_starling)
-            .setContentTitle(ctx.getString(R.string.app_name))
+            .setContentTitle(heading)
             .setContentText(text)
             .setContentIntent(open)
             .setAutoCancel(true)

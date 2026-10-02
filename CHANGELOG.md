@@ -98,6 +98,11 @@ All notable changes to Starling are recorded here. Versions follow
   Starling is open. The icons in the status and navigation bars match the
   theme you picked too, so the Light theme no longer gets white icons on a
   white bar.
+- **Remind me to share again.** Settings, Sharing on Android has "Remind me
+  if sharing stays off" (#6). Pick 1, 4 or 12 hours and a stop you made
+  yourself leaves a notification on this phone after that long, unless you
+  are sharing again by then. It says only that sharing is off and nothing
+  goes to your circle. The default is Never.
 
 ## [0.15.2]
 

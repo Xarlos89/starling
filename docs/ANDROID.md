@@ -242,6 +242,21 @@ intent back to `LocationService`. While the share is live the service posts
 the notification again under the same id. Once the share has ended it does
 nothing. Stop and the lock screen work as before.
 
+### A reminder when sharing stays off
+
+Settings, Sharing has "Remind me if sharing stays off" (#6). The choices are
+Never, 1 h, 4 h and 12 h. Never is the default. A stop you chose yourself
+sets an alarm for that long. That covers the switch and Stop on the
+notification. It also covers a timed share that ran out and a circle switch.
+A stop that Android or the app lock made sets nothing, since that share comes
+back by itself. The events channel shows "Sharing is off. Open Starling to
+share again." when the alarm goes off and no share is running. It says nothing
+about a circle or a person. Starting a share or a panic wipe cancels the
+alarm and takes down a reminder already showing. The alarm is windowed and
+not exact. It needs no exact alarm permission and can arrive up to 10
+minutes late, or later while the phone sits in Doze. A phone restart drops
+it because the app does not listen for boot.
+
 ## Sharing with the screen off
 
 Everything that seals and posts a position runs in the page, and a WebView

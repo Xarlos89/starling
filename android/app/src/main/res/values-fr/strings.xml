@@ -13,6 +13,8 @@
     <string name="notif_swiped_text">Starling a été fermée. Rouvrez-la pour continuer le partage.</string>
     <string name="notif_location_off">La localisation est désactivée sur ce téléphone. Activez-la pour continuer à partager.</string>
     <string name="notif_locked_text">Ouvrez Starling pour voir ce qui s\'est passé.</string>
+    <string name="notif_remind_title">Le partage est coupé</string>
+    <string name="notif_remind_text">Ouvrez Starling pour partager à nouveau.</string>
     <string name="bio_wrap_title">Confirmez pour activer le déverrouillage biométrique</string>
     <string name="bio_unwrap_title">Déverrouiller Starling</string>
     <string name="bio_cancel">Utiliser le code d\'accès</string>

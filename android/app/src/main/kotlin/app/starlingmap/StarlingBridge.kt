@@ -77,6 +77,16 @@ class StarlingBridge(private val app: Context) {
         ui { it.setBarsLight(light) }
     }
 
+    // --------------------------------------------------------- share reminder
+
+    // ms from now, held between a minute and a day. The page calls it only
+    // for a stop the person chose, and cancels it when a share starts.
+    @JavascriptInterface
+    fun remindShareIn(ms: Long) = ShareReminder.schedule(app, ms)
+
+    @JavascriptInterface
+    fun cancelShareReminder() = ShareReminder.cancel(app)
+
     // ----------------------------------------------------- share stop trace
 
     // A share can end from the Stop button on the notification or from the

@@ -4,6 +4,12 @@
 // node tools/extract-strings.mjs
 // Missing entries fall back to English by design.
 export const es = {
+  "Remind me if sharing stays off": "Recordarme si sigo sin compartir",
+  "If you stop sharing and do not turn it back on, this phone shows a notification after that long. Nothing goes to your circle.": "Si dejas de compartir y no lo vuelves a activar, este teléfono muestra una notificación pasado ese tiempo. A tu círculo no le llega nada.",
+  "Never": "Nunca",
+  "1 h": "1 h",
+  "4 h": "4 h",
+  "12 h": "12 h",
   "SOS and Do Not Disturb": "SOS y No molestar",
   "An SOS from your circle rings through Do Not Disturb when alarms are allowed. To let it through total silence too, turn on Override Do Not Disturb for Emergency alerts.": "Un SOS de tu círculo suena con No molestar activado si las alarmas están permitidas. Para que suene también en silencio total, activa Ignorar No molestar en Alertas de emergencia.",
   "Open emergency alert settings": "Abrir ajustes de alertas de emergencia",
