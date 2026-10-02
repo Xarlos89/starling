@@ -373,6 +373,16 @@ each wake-up.
 
 ## Known WebView-specific limits
 
+- **Safe Browsing and WebView metrics are off, autofill lookups are not.**
+  On a phone with Google's WebView, Safe Browsing checks each page a WebView
+  loads against lists from Google. WebView can also send usage metrics. The
+  page only ever loads its own bundled files and map tiles. So the manifest
+  sets `android.webkit.WebView.EnableSafeBrowsing` to false and
+  `android.webkit.WebView.MetricsOptOut` to true, and `PageHost` turns Safe
+  Browsing off on the WebView it builds. A capture on 2026-09-22 also showed
+  the WebView asking `content-autofill.googleapis.com` on its own. No app
+  setting stops that request because it comes from the WebView build on the
+  phone.
 - **No service worker.** `sw.js` is never registered inside the wrapper.
   Assets are bundled into the APK and served through
   `WebViewAssetLoader` at `https://appassets.androidplatform.net/`, which is

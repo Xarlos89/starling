@@ -150,6 +150,8 @@ object PageHost {
             // targetSdk bump cannot quietly change the default under us.
             allowFileAccessFromFileURLs = false
             allowUniversalAccessFromFileURLs = false
+            // Each URL checked is a lookup Google could see; see the manifest.
+            safeBrowsingEnabled = false
         }
         // Not waived when the page is off screen: the whole point of holding it
         // is that it keeps sealing and posting positions with no window.

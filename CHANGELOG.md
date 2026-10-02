@@ -103,6 +103,11 @@ All notable changes to Starling are recorded here. Versions follow
   yourself leaves a notification on this phone after that long, unless you
   are sharing again by then. It says only that sharing is off and nothing
   goes to your circle. The default is Never.
+- **No Safe Browsing lookups or WebView metrics.** On phones with Google's
+  WebView the app could have its page checked by Safe Browsing and its use
+  counted in WebView metrics. Both are off now. The autofill lookup some
+  WebView builds make on their own has no off switch an app can reach, and
+  docs/ANDROID.md says so.
 
 ## [0.15.2]
 

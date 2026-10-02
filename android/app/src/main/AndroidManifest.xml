@@ -41,6 +41,16 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Starling">
 
+        <!-- The page loads bundled files and map tiles, nothing to check
+             against Google's lists, and nothing about its use goes to Google
+             either. PageHost turns Safe Browsing off in code too. -->
+        <meta-data
+            android:name="android.webkit.WebView.EnableSafeBrowsing"
+            android:value="false" />
+        <meta-data
+            android:name="android.webkit.WebView.MetricsOptOut"
+            android:value="true" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
