@@ -6440,7 +6440,7 @@ function toggleDemoMap() {
 function loadDemoMap() {
   demoMapAsk = false;
   demoMapOn = true;
-  mapView.setBasemap(matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+  mapView.setBasemap(resolvedTheme());
   render();
 }
 
