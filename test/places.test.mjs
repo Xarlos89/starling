@@ -15,6 +15,7 @@ import {
   ACC_CONFIDENCE_CAP_M,
   MAX_SPEED_MS,
   fenceSnap,
+  announces,
 } from "../app/js/places.js";
 
 // About 1 degree of latitude = 111,320 m; walk north by meters from a base.
@@ -279,4 +280,24 @@ test("plausible speed never trips the glitch gate", () => {
     evs.map((e) => e.type),
     ["leave", "arrive"],
   );
+});
+
+test("a place with no alerts field announces both ways", () => {
+  assert.equal(HOME.alerts, undefined);
+  assert.ok(validPlace(HOME), "a place saved before the choice existed still loads");
+  assert.ok(announces(HOME, "arrive"));
+  assert.ok(announces(HOME, "leave"));
+  assert.ok(announces({ ...HOME, alerts: "arrive" }, "arrive"));
+  assert.ok(!announces({ ...HOME, alerts: "arrive" }, "leave"));
+  assert.ok(!announces({ ...HOME, alerts: "leave" }, "arrive"));
+  assert.ok(!announces({ ...HOME, alerts: "off" }, "arrive"));
+  assert.ok(!announces({ ...HOME, alerts: "off" }, "leave"));
+});
+
+test("validPlace refuses an unknown alerts value", () => {
+  for (const alerts of ["both", "arrive", "leave", "off"]) assert.ok(validPlace({ ...HOME, alerts }), alerts);
+  for (const alerts of ["sometimes", "", null, true, 1, ["arrive"]]) {
+    assert.ok(!validPlace({ ...HOME, alerts }), `alerts ${JSON.stringify(alerts)}`);
+  }
+  assert.deepEqual(sanitizePlaces([{ ...HOME, alerts: "nope" }, SCHOOL]), [SCHOOL]);
 });

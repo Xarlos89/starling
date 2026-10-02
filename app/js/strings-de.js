@@ -604,4 +604,10 @@ export const de = {
   "Their live position is on the map. It stays here until they check in.": "Die Live-Position ist auf der Karte. Das bleibt hier, bis die Person sich meldet.",
   "{who}'s phone stopped sending {ago} ago. The last position it sent is on the map.": "Das Handy von {who} sendet seit {ago} nichts mehr. Die zuletzt gesendete Position ist auf der Karte.",
   "{who}'s SOS went quiet": "Das SOS von {who} ist verstummt",
+  "Alerts": "Hinweise",
+  "{name} alerts": "Hinweise für {name}",
+  "Both": "Beides",
+  "Arrive": "Ankunft",
+  "Leave": "Weggang",
+  "Off": "Aus",
 };

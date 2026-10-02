@@ -614,4 +614,10 @@ export const es = {
   "Their live position is on the map. It stays here until they check in.": "Su posición en vivo está en el mapa. Esto se queda aquí hasta que avise.",
   "{who}'s phone stopped sending {ago} ago. The last position it sent is on the map.": "El teléfono de {who} dejó de enviar hace {ago}. La última posición que envió está en el mapa.",
   "{who}'s SOS went quiet": "El SOS de {who} se quedó sin señal",
+  "Alerts": "Alertas",
+  "{name} alerts": "Alertas de {name}",
+  "Both": "Ambas",
+  "Arrive": "Llegada",
+  "Leave": "Salida",
+  "Off": "Ninguna",
 };

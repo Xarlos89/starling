@@ -2599,6 +2599,18 @@ div.danger-zone {
   font-size: 0.75rem;
 }
 
+.place-alerts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.place-alerts-label {
+  font-size: 0.8125rem;
+  color: var(--ink-2);
+}
+
 .place-add {
   display: grid;
   gap: 10px;

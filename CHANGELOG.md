@@ -20,6 +20,12 @@ All notable changes to Starling are recorded here. Versions follow
   their line, and your phone says once that the SOS went quiet. An incoming SOS
   also leaves a card on the sheet with Show on map, until they check in, say
   bye, or you tap Got it. The help link page still reads "Signal lost".
+- **Choose which arrivals and departures each place tells you about.** Every
+  saved place has Both, Arrive, Leave or Off under Places, so "tell me when
+  she leaves school" no longer comes with three other alerts a day. Off keeps
+  the "At School" line on the member card and stays silent. Places saved
+  before this keep saying both, and the switch in Settings still silences
+  all of them.
 - **German, French and Brazilian Portuguese.** The whole app, the Android
   notifications and the update-your-WebView screen, under Settings, Language
   or following the phone's language. These are first passes; Spanish had a

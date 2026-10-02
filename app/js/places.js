@@ -34,6 +34,7 @@ export const ACC_CONFIDENCE_CAP_M = 50;
 // cruise near 250 m/s but hand out no fixes mid-flight; cars and trains stay
 // far under it.
 export const MAX_SPEED_MS = 90;
+export const PLACE_ALERTS = ["both", "arrive", "leave", "off"];
 
 export function newPlaceId() {
   const b = new Uint8Array(4);
@@ -57,8 +58,15 @@ export function validPlace(p) {
     Number.isFinite(p.lon) &&
     Math.abs(p.lon) <= 180 &&
     PLACE_RADII.includes(p.radius) &&
-    (p.fence === undefined || typeof p.fence === "boolean")
+    (p.fence === undefined || typeof p.fence === "boolean") &&
+    (p.alerts === undefined || PLACE_ALERTS.includes(p.alerts))
   );
+}
+
+// No choice stored means both ways, which is how every place behaved before.
+export function announces(place, type) {
+  const mode = place?.alerts ?? "both";
+  return mode === "both" || mode === type;
 }
 
 export const sanitizePlaces = (list) =>

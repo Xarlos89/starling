@@ -1699,7 +1699,14 @@ export function openExportSheet(json, { onClose } = {}) {
   return ov;
 }
 
-export function openPlacesSheet({ api, onAdd, onPick, onRename, onRadius, onFence, onRemove, onClose }) {
+const PLACE_ALERT_CHOICES = [
+  { value: "both", label: "Both" },
+  { value: "arrive", label: "Arrive" },
+  { value: "leave", label: "Leave" },
+  { value: "off", label: "Off" },
+];
+
+export function openPlacesSheet({ api, onAdd, onPick, onRename, onRadius, onFence, onAlerts, onRemove, onClose }) {
   const ov = openOverlay({ title: "Places", testid: "places-sheet", className: "ov-places", onClose });
   const b = ov.body;
 
@@ -1736,6 +1743,27 @@ export function openPlacesSheet({ api, onAdd, onPick, onRename, onRadius, onFenc
     return seg;
   };
 
+  const alertsSeg = (place) => {
+    const wrap = el("div", "place-alerts");
+    wrap.append(el("span", "place-alerts-label", "Alerts"));
+    const seg = el("div", "seg seg-mini");
+    seg.setAttribute("role", "radiogroup");
+    seg.setAttribute("aria-label", t("{name} alerts", { name: place.name }));
+    const current = place.alerts ?? "both";
+    for (const opt of PLACE_ALERT_CHOICES) {
+      const cell = btn("seg-cell", opt.label);
+      cell.setAttribute("role", "radio");
+      cell.dataset.alerts = opt.value;
+      const sel = current === opt.value;
+      cell.classList.toggle("sel", sel);
+      cell.setAttribute("aria-checked", String(sel));
+      cell.addEventListener("click", () => onAlerts?.(place.id, opt.value));
+      seg.append(cell);
+    }
+    wrap.append(seg);
+    return wrap;
+  };
+
   function placeRow(place) {
     const row = el("div", "place-row");
     row.dataset.place = place.id;
@@ -1761,14 +1789,14 @@ export function openPlacesSheet({ api, onAdd, onPick, onRename, onRadius, onFenc
     fenceIn.setAttribute("aria-label", t("Privacy fence for {name}", { name: place.name }));
     fenceIn.addEventListener("change", () => onFence?.(place.id, fenceIn.checked));
     fence.append(fenceIn, el("span", "place-fence-text", "Privacy fence"));
-    row.append(head, radiusSeg(place), fence);
+    row.append(head, radiusSeg(place), alertsSeg(place), fence);
     return row;
   }
 
   let sig = null;
   function paint() {
     const places = api.places();
-    const nextSig = JSON.stringify(places.map((p) => [p.id, p.name, p.radius, !!p.fence]));
+    const nextSig = JSON.stringify(places.map((p) => [p.id, p.name, p.radius, !!p.fence, p.alerts ?? "both"]));
     if (nextSig === sig) return;
     sig = nextSig;
     listEl.replaceChildren(...places.map(placeRow));

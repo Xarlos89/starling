@@ -104,7 +104,7 @@ import {
   bioAvailable,
   zero,
 } from "./lock.js";
-import { createPlaceTracker, sanitizePlaces, newPlaceId, fenceSnap, DEFAULT_RADIUS } from "./places.js";
+import { createPlaceTracker, sanitizePlaces, newPlaceId, fenceSnap, announces, DEFAULT_RADIUS } from "./places.js";
 import { DUE_GRACE_MS, DUE_WARN_MS, overdue, storedTimer, warnDue } from "./checkin.js";
 import { debugHooks, apiUrl, customRelayInUse, isWrapped, isBundled, native, pageShown, shareUrlBase, normalizeRelay, normalizeForward, normalizeForwardTid, setApiBase, shareCapable } from "./env.js";
 import {
@@ -6175,6 +6175,10 @@ function openPlaces() {
         state.places = state.places.map((p) => (p.id === id ? { ...p, fence: !!on } : p));
         await savePlaces();
       },
+      onAlerts: async (id, alerts) => {
+        state.places = state.places.map((p) => (p.id === id ? { ...p, alerts } : p));
+        await savePlaces();
+      },
       onRemove: async (id) => {
         state.places = state.places.filter((p) => p.id !== id);
         await savePlaces();
@@ -6245,6 +6249,7 @@ function checkAlerts() {
       });
       if (state.settings.placeAlerts) {
         for (const ev of evs) {
+          if (!announces(placeTracker.places().find((p) => p.id === ev.placeId), ev.type)) continue;
           const msg =
             ev.type === "arrive" ? t("{who} arrived at {place}", { who, place: ev.placeName }) : t("{who} left {place}", { who, place: ev.placeName });
           ui.toast(msg);
