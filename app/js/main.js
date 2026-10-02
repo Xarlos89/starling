@@ -456,9 +456,21 @@ const myHue = () => (state.identity ? hueFromMemberId(state.identity.memberId) :
 // ------------------------------------------------------------------ theme
 
 const mqLight = matchMedia("(prefers-color-scheme: light)");
+// The wrapper's WebView settles prefers-color-scheme once, when it is built,
+// so there the phone's dark mode comes from the bridge, and so does word of a
+// change.
+function systemLight() {
+  try {
+    const n = native();
+    if (typeof n?.systemDark === "function") return !n.systemDark();
+  } catch {
+    // an older wrapper
+  }
+  return mqLight.matches;
+}
 function resolvedTheme() {
   const t = state.settings.theme;
-  return t === "auto" ? (mqLight.matches ? "light" : "dark") : t;
+  return t === "auto" ? (systemLight() ? "light" : "dark") : t;
 }
 function applyTheme() {
   const t = resolvedTheme();
@@ -466,10 +478,17 @@ function applyTheme() {
   // Match the browser chrome (status bar, address bar) to the active theme.
   const bar = document.querySelector('meta[name="theme-color"]');
   if (bar) bar.setAttribute("content", t === "light" ? "#f4f6fb" : "#0a0d14");
+  // The wrapper has no theme-color; its bar icons have to be told.
+  try {
+    native()?.setBarsLight?.(t === "light");
+  } catch {
+    // an older wrapper without the method
+  }
 }
 const onSchemeChange = () => {
   if (state.settings.theme === "auto") applyTheme();
 };
+globalThis.__starlingScheme = onSchemeChange;
 // Safari < 14 only has the legacy MediaQueryList.addListener.
 if (mqLight.addEventListener) mqLight.addEventListener("change", onSchemeChange);
 else if (mqLight.addListener) mqLight.addListener(onSchemeChange);

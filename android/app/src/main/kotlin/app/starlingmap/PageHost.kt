@@ -9,6 +9,7 @@ import android.hardware.display.VirtualDisplay
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.view.ContextThemeWrapper
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
@@ -71,6 +72,8 @@ object PageHost {
 
     val alive: Boolean get() = webView != null
 
+    val barsLight: Boolean? get() = bridge?.barsLight
+
     // Sharing report counts since the app started.
     @Volatile var nudges = 0
         private set
@@ -122,7 +125,9 @@ object PageHost {
             WebView.setWebContentsDebuggingEnabled(true)
         }
 
-        val view = WebView(app)
+        // The application context alone carries the platform's default light
+        // theme, and WebView reads isLightTheme for prefers-color-scheme.
+        val view = WebView(ContextThemeWrapper(app, R.style.Theme_Starling))
         webView = view
         loader = WebViewAssetLoader.Builder()
             .addPathHandler("/", WebViewAssetLoader.AssetsPathHandler(app))
@@ -355,6 +360,8 @@ object PageHost {
     fun notice(message: String) = eval("globalThis.__starlingNotice && __starlingNotice(${JSONObject.quote(message)})")
 
     fun hashChange(fragment: String) = eval("location.hash = ${JSONObject.quote("#$fragment")}")
+
+    fun schemeChanged() = eval("globalThis.__starlingScheme && __starlingScheme()")
 
     fun cameraReply(token: String, granted: Boolean) =
         eval("globalThis.__starlingCamera && __starlingCamera(${JSONObject.quote(token)}, $granted)")

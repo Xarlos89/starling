@@ -56,6 +56,27 @@ class StarlingBridge(private val app: Context) {
         Events.cancel(app, tag.take(64))
     }
 
+    // ------------------------------------------------------------------ theme
+
+    // Kept so a window opened over a page that is already running matches it.
+    @Volatile
+    var barsLight: Boolean? = null
+        private set
+
+    // The phone's dark mode now. The WebView settles prefers-color-scheme
+    // once, when it is built, and this page can outlive that by days.
+    @JavascriptInterface
+    fun systemDark(): Boolean =
+        (app.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+            android.content.res.Configuration.UI_MODE_NIGHT_YES
+
+    // The page's resolved theme, which can differ from the phone's.
+    @JavascriptInterface
+    fun setBarsLight(light: Boolean) {
+        barsLight = light
+        ui { it.setBarsLight(light) }
+    }
+
     // ----------------------------------------------------- share stop trace
 
     // A share can end from the Stop button on the notification or from the

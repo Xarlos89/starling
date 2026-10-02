@@ -92,6 +92,12 @@ All notable changes to Starling are recorded here. Versions follow
   while the share kept running. Anyone holding the phone for a minute could
   hide that it was sharing. Starling puts it straight back now for as long as
   the share runs.
+- **Theme Auto follows the phone on Android.** Auto used to stay light on a
+  phone in dark mode because the WebView inside the app never saw the phone
+  setting. It follows dark mode now, also when the phone switches while
+  Starling is open. The icons in the status and navigation bars match the
+  theme you picked too, so the Light theme no longer gets white icons on a
+  white bar.
 
 ## [0.15.2]
 

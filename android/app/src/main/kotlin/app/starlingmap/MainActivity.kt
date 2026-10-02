@@ -4,7 +4,9 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
@@ -15,6 +17,7 @@ import android.webkit.WebView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.webkit.ProxyConfig
 import androidx.webkit.ProxyController
@@ -47,6 +50,9 @@ class MainActivity : FragmentActivity() {
         const val PREF_STOP_ROUTE = "stop_route"
         const val PREF_STOP_TS = "stop_ts"
         const val PREF_KEEP_SHARING = "keep_sharing"
+        // --bg of each theme in css/tokens.css.
+        private const val BAR_LIGHT = 0xFFF4F6FB.toInt()
+        private const val BAR_DARK = 0xFF0A0D14.toInt()
     }
 
     private lateinit var webView: WebView
@@ -125,6 +131,7 @@ class MainActivity : FragmentActivity() {
         val booted = PageHost.alive
         webView = PageHost.attach(this)
         setContentView(webView)
+        PageHost.barsLight?.let { setBarsLight(it) }
 
         val fragment = intent?.takeIf { it.data?.host == APP_HOST }?.data?.fragment
         if (booted) {
@@ -138,6 +145,8 @@ class MainActivity : FragmentActivity() {
     override fun onStart() {
         super.onStart()
         PageHost.setShown(this, true)
+        // The phone may have switched dark mode while this window was gone.
+        PageHost.schemeChanged()
         if (startWhenShown) {
             startWhenShown = false
             startShareFlow()
@@ -157,6 +166,12 @@ class MainActivity : FragmentActivity() {
         // On only: a share started a moment ago is not running yet, and the page's stop turns it off.
         if (LocationService.live) backWhileSharing.isEnabled = true
         if (torEnabled()) OrbotStatus.ask(this)
+    }
+
+    // uiMode is in configChanges, so a dark mode switch lands here instead of recreating the window.
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        PageHost.schemeChanged()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -184,6 +199,23 @@ class MainActivity : FragmentActivity() {
             OrbotStatus.stop(this)
         }
         super.onDestroy()
+    }
+
+    // --------------------------------------------------------------- theme
+
+    // Edge to edge from Android 15 the bars are drawn over the page, so only
+    // the icons can follow it; below that the bars keep a color of their own.
+    fun setBarsLight(light: Boolean) {
+        val bars = WindowCompat.getInsetsController(window, window.decorView)
+        bars.isAppearanceLightStatusBars = light
+        bars.isAppearanceLightNavigationBars = light
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            val color = if (light) BAR_LIGHT else BAR_DARK
+            @Suppress("DEPRECATION")
+            window.statusBarColor = color
+            @Suppress("DEPRECATION")
+            window.navigationBarColor = color
+        }
     }
 
     // ------------------------------------------------------------- location
