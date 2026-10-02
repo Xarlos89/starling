@@ -636,11 +636,18 @@ async function copyLink(link, msg) {
 }
 
 // The OS share sheet is the fast path under stress: it reaches the messaging
-// apps someone already has open. Clipboard is the fallback.
-async function shareLink(link, lead, msg) {
+// apps someone already has open. Clipboard is the fallback. The Android
+// wrapper's WebView has no navigator.share, so there the bridge opens it.
+export async function shareLink(link, lead, msg) {
+  const text = `${t(lead)} ${link}`;
+  try {
+    if (native()?.shareText?.(text) === true) return;
+  } catch {
+    // an older wrapper; fall through
+  }
   if (navigator.share) {
     try {
-      await navigator.share({ text: `${t(lead)} ${link}` });
+      await navigator.share({ text });
       return;
     } catch {
       // cancelled or unavailable: fall through to copying

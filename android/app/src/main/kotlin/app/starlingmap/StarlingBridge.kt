@@ -182,6 +182,20 @@ class StarlingBridge(private val app: Context) {
         }
     }
 
+    // ----------------------------------------------------------------- share
+
+    // The system share sheet, which Android System WebView does not give the
+    // page as navigator.share. False with no window on screen to start it
+    // from, so the page can copy instead.
+    @JavascriptInterface
+    fun shareText(text: String): Boolean {
+        val a = activity ?: return false
+        if (!PageHost.windowShown || PageHost.activity !== a) return false
+        val body = text.take(2000)
+        a.runOnUiThread { a.shareText(body) }
+        return true
+    }
+
     // ------------------------------------------------------------- location
 
     // From the background this threw and the page forgot its share; now it waits for the window.

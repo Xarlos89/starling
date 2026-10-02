@@ -108,6 +108,11 @@ All notable changes to Starling are recorded here. Versions follow
   counted in WebView metrics. Both are off now. The autofill lookup some
   WebView builds make on their own has no off switch an app can reach, and
   docs/ANDROID.md says so.
+- **Send opens the share sheet on Android.** Send the link on an invite and
+  Send on a help link quietly copied the link instead. The WebView inside
+  the app has no web share, so the app now opens the Android share sheet
+  itself and leaves the clipboard alone. The link is still copied when there
+  is no window to show the sheet in.
 
 ## [0.15.2]
 

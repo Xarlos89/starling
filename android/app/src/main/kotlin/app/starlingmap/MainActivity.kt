@@ -284,6 +284,11 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    fun shareText(text: String) {
+        val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text)
+        runCatching { startActivity(Intent.createChooser(send, null)) }
+    }
+
     // "Restricted" is only undone on the app's own page in system settings.
     fun openBatterySettings() {
         runCatching {
