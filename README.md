@@ -316,24 +316,49 @@ What is left needs someone other than this repo's code: an outside reviewer,
 a native speaker, a store account, or a design decision.
 
 - An independent security review. Nothing else on this list matters as much;
-  see [docs/AUDIT.md](docs/AUDIT.md) for where to start.
+  see [docs/AUDIT.md](docs/AUDIT.md) for where to start. The check-in timer
+  is the newest thing to look at: its deadline rides inside every post and
+  sits on the phone in plaintext while it runs.
+- A release with what CHANGELOG.md lists under Unreleased, the check-in timer
+  among it. It is in the source and not yet in an APK or on F-Droid.
 - Native-speaker review of the German (#14), French (#15) and Brazilian
   Portuguese (#16) catalogs. They ship as first passes; Spanish went through
-  a line by line review (#1) and the other three want the same. One file per
-  language in `app/js/strings-*.js`, English on the left. More languages are
-  welcome: `node tools/extract-strings.mjs` prints the full catalog for a new
-  one, and a test holds every catalog to full coverage. RTL layout polish
-  lands with the first RTL translation.
+  a line by line review (#1) and the other three want the same. The strings
+  added since then, for the check-in timer, the SOS card, place alerts and
+  the help link page, are first passes in all four, Spanish included. One
+  file per language in `app/js/strings-*.js`, English on the left. More
+  languages are welcome: `node tools/extract-strings.mjs` prints the full
+  catalog for a new one, and a test holds every catalog to full coverage.
+  RTL layout polish lands with the first RTL translation.
 - Google Play, still not live.
 - Being visible to more than one circle at once. Precision and cadence are
   per circle now; sharing itself still goes to the active circle only, and
   posting to several means one ratchet, one channel and one outbox each,
-  which is a design pass, not an afternoon.
-- One-time guest links as short-lived side circles.
+  which is a design pass, not an afternoon. It also has to keep the promise
+  above that the relay cannot tell two circles share a member: one phone
+  posting to two channels on the same beat from one address says exactly
+  that, so each circle would need its own schedule, and maybe its own Tor
+  circuit.
+- One-time guest links as short-lived side circles. A one-way "watch me walk
+  home" link could reuse the help link code, but three things need deciding
+  first: whether ordinary links on the hosted viewer are fine outside an
+  emergency, how loudly the phone has to say one is running so it cannot
+  turn into a quiet tracker, and whether it follows neighborhood precision
+  and privacy fences the way an SOS on purpose does not.
+- An SOS from the sharing notification or the lock screen, without opening
+  the app. That is a lock screen security call, the same kind that makes
+  Stop ask for an unlock on Android 12 and up, and a pocket tap that sends a
+  real SOS needs a confirm step and a test in a real pocket, not on an
+  emulator.
 - A real-phone pass over the QR scan: the decoder is proven on rendered and
   distorted codes and the camera path on an emulator, not yet on a phone
   camera pointed at another phone. The iOS wrapper has the camera
   permission text but no one has run the scan on iOS.
+- A real-phone pass over the alerts that have to reach a phone in a pocket.
+  A missed check-in and an SOS that went quiet use the same urgent
+  notification as an SOS, and they only fire while Starling can listen in
+  the background, which Samsung and Pixel builds police differently. The
+  people testing #6 on those phones are the right check.
 
 There is an iOS app now: a WKWebView wrapper around the same bundled app,
 in `ios/`, that holds a real circle. It is build-from-source only today: a

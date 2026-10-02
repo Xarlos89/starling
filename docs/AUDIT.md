@@ -168,9 +168,9 @@ under it; the function names are the durable half.
 | Re-key delivery (ECDH wrap) | `crypto.js:147-203` (`generateEphemeral`, `sealTo`, `openSealed`; the AAD is built at `crypto.js:177`), context built by `rekey.js:39-40` (`rekeyContext`) | fresh ephemeral key per wrap; the AAD binds the recipient's member id and, through `context`, who rotated, which generation, which epoch was mixed, the roster hash and who was dropped, so a wrap cannot be replayed at another member or reattributed to a different rotator |
 | Roster hash | `wire.js:88-90` (`rosterHash`), built at `rekey.js:60`, compared at `rekey.js:172-174` and `membership.js:216-218` | `b64u(SHA-256("starling/v2/roster\|" + sorted ids joined by ","))` over the set the rotator wrapped to, which is the next generation minus the rotator itself |
 | Beacon channel unlinkability, per viewer | `crypto.js:277` and `crypto.js:290` (`deriveHelpChannelId`, `deriveHelpEncKey`) use `starling/v2/help-*` HKDF labels, separate from the circle domain, one secret per viewer; wired into `app/js/helpsession.js:48-89` (one secret, one channel and one signing identity per viewer) | each viewer's link derives its own channel; the relay cannot link two viewers' channels to each other by key material |
-| Beacon sender pinning (viewer side) | `app/js/helpview.js:52-55` (`onlyFrom`), applied at `helpview.js:138` | the link commits to the beacon's member id and the viewer filters before ingest, so a false position from anyone else the link reached never touches the roster, the map or the status line |
-| Beacon expiry, enforced both ends | `crypto.js:303-316` (`beaconFragment`/`parseBeaconFragment`, no fallback for a commitment-free link), `app/js/helpsession.js:100-120` (retiring a viewer past `expiresAt` before the next post), `app/js/helpview.js:31-32` and `helpview.js:116` (`isExpired`, checked before render and again in the poll loop) | both the sender and the viewer stop independently at the same deadline; neither trusts the other to enforce it |
-| Beacon viewer key cannot encrypt | `crypto.js:290` (usages are the caller's to name), `helpview.js:128` passes `["decrypt"]`, `helpsession.js:55` passes `["encrypt"]` | narrow, and stated narrowly: it does not stop a link holder sealing something in their own code, it stops a bug in the viewer page becoming a post |
+| Beacon sender pinning (viewer side) | `app/js/helpview.js:60-65` (`onlyFrom`), applied at `helpview.js:163` | the link commits to the beacon's member id and the viewer filters before ingest, so a false position from anyone else the link reached never touches the roster, the map or the status line |
+| Beacon expiry, enforced both ends | `crypto.js:303-316` (`beaconFragment`/`parseBeaconFragment`, no fallback for a commitment-free link), `app/js/helpsession.js:100-120` (retiring a viewer past `expiresAt` before the next post), `app/js/helpview.js:39-41` and `helpview.js:141`, `helpview.js:290` (`isExpired`, checked before render and again in the poll loop) | both the sender and the viewer stop independently at the same deadline; neither trusts the other to enforce it |
+| Beacon viewer key cannot encrypt | `crypto.js:290` (usages are the caller's to name), `helpview.js:153` passes `["decrypt"]`, `helpsession.js:55` passes `["encrypt"]` | narrow, and stated narrowly: it does not stop a link holder sealing something in their own code, it stops a bug in the viewer page becoming a post |
 | App-lock at-rest encryption | `app/js/lock.js:65` (`sealUnderVault`), `lock.js:71` (`openUnderVault`), `lock.js:91` (`makePasscodeRecord`), `makeBioRecord`, `ARGON2_PARAMS` in `app/js/argon2.js` (64 MiB, t=3, p=1; the WebAssembly module and its pinned hash are described in `docs/ARGON2.md`); pre-0.16 PBKDF2 records open and are re-wrapped on the next passcode unlock (`passcodeNeedsRewrap`) | unchanged by the v2 migration; wraps whatever the storage layer currently calls the circle secret, which since v2 is the retained chain key, not a permanent root |
 | Multi-circle storage (v2 shape) | `app/js/circles.js:73-129` (`packGenMeta`/`readGenMeta`, pinned roster pack/read at `circles.js:110`), `circles.js:188` (the staged generation record) | a circle record is a generation (`g`, `e0`, `ckEpoch`, `channelId`, `genRoster`) plus a pinned roster, not a flat 32-byte secret; see the file's own header comment for why the storage slot is still named `secret` |
 | Panic wipe (web) | `app/js/store.js:83` (`wipeAll`) | deletes IndexedDB, clears localStorage and Cache Storage, unregisters the service worker; the code's own comment notes the browser's HTTP tile cache is unreachable from page JS and is not wiped |
@@ -456,6 +456,15 @@ a unit test in isolation, and the things round five turned up.
     arrival timing does not need the keys. Is uniform padding (already
     true) enough, or is a deliberate delay before the beacon's first
     post cheap enough to be worth adding.
+14. **The check-in timer's deadline.** While a timer runs, every post
+    carries `due` inside the sealed plaintext (`main.js` `sendMsg`), and
+    each receiver keeps it from the newest message (`net.js` `ingest`,
+    bounded by `dueFrom` in `checkin.js`) and alerts a minute after it
+    passes. Only a check-in clears it, on purpose. Look for a way a relay
+    can make a receiver alert falsely, or stay quiet, by withholding or
+    reordering posts within what the replay rule already allows, and for
+    anything the plaintext `checkinDue` record at rest tells a person
+    holding a locked phone beyond what THREAT-MODEL.md admits.
 
 ### One thing we know is wrong and is not a security finding
 

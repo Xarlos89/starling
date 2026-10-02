@@ -5,14 +5,14 @@ All notable changes to Starling are recorded here. Versions follow
 
 ## [Unreleased]
 
-- **Check-in timer.** A new button under the member sheet sets a deadline from
-  30 minutes to 8 hours. While it runs, every post carries the deadline inside
-  the encrypted message, and each phone in your circle tells its person when it
-  passes without a check-in: an urgent notification, and a card that stays on
-  the sheet with your last position. Your own phone warns you five minutes
-  before. Only a check-in you tap stops it. Stopping sharing, the app lock,
-  leaving and wiping do not, on purpose. Phones on older versions ignore the
-  deadline and are not told.
+- **Check-in timer.** A new button next to People and keys and Places sets a
+  deadline from 30 minutes to 8 hours. While it runs, every post carries the
+  deadline inside the encrypted message, and each phone in your circle tells
+  its person when it passes without a check-in: an urgent notification, and a
+  card that stays on the sheet with your last position. Your own phone warns
+  you five minutes before. Only a check-in you tap stops it. Stopping sharing,
+  the app lock, leaving and wiping do not, on purpose. Phones on older
+  versions ignore the deadline and are not told.
 - **An SOS that goes quiet stays an SOS.** A member whose phone stopped
   sending in the middle of an SOS used to turn into "Last seen" and sink below
   everyone still live, at exactly the moment the circle most needs them on top.
