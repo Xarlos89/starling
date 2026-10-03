@@ -1,4 +1,4 @@
-// store.js is he in-memory fallback when IndexedDB is broken,
+// store.js is the in-memory fallback when IndexedDB is broken,
 // and the panic wipe, which has to erase everything it can reach even
 // when one of the things it attempts throws an error.
 import test from "node:test";

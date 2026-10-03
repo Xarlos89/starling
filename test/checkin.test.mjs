@@ -12,7 +12,7 @@ test("dueFrom keeps a deadline within a day of the message and drops one further
   assert.equal(dueFrom({ ts: NOW, due: NOW + DUE_WINDOW_MS }), NOW + DUE_WINDOW_MS, "the window is inclusive");
   assert.equal(dueFrom({ ts: NOW, due: NOW + DUE_WINDOW_MS + 1 }), null);
 
-  // the sender missed it and thouse who watch must know.
+  // the sender missed it and those who watch must know.
   assert.equal(dueFrom({ ts: NOW, due: NOW - 60_000 }), NOW - 60_000);
   assert.equal(dueFrom({ ts: NOW, due: NOW - DUE_WINDOW_MS }), NOW - DUE_WINDOW_MS);
   assert.equal(dueFrom({ ts: NOW, due: NOW - DUE_WINDOW_MS - 1 }), null);
