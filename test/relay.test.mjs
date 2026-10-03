@@ -1017,3 +1017,60 @@ test("the trim only runs on sampled posts, so most posts read no trail at all", 
     .get(circle.channel, id.memberId);
   assert.equal(stored.n, n, "sampled out: nothing trimmed, the client cuts to TRAIL_CAP itself");
 });
+
+// A database that fails every call by design
+function brokenEnv(channel) {
+  const boom = () => {
+    throw new Error(`D1_ERROR: no such table for channel ${channel}`);
+  };
+  return { DB: { prepare: boom, batch: boom }, RATE_POST_MIN: "1000000", RATE_GET_MIN: "1000000" };
+}
+
+async function assertBare500(res, channel) {
+  assert.equal(res.status, 500);
+  assertJsonHeaders(res);
+  const text = await res.text();
+  assert.deepEqual(JSON.parse(text), { error: "server error" });
+  assert.ok(!text.includes(channel) && !text.includes("D1_ERROR"));
+}
+
+test("a storage failure is a 500 that says nothing about why", async () => {
+  const circle = await makeCircle();
+  const id = await generateIdentity();
+  const env = brokenEnv(circle.channel);
+  await assertBare500(await getFeed(env, circle.channel), circle.channel);
+  await assertBare500(await postLoc(env, circle.channel, await validPost(circle, id, Date.now())), circle.channel);
+});
+
+test("the relay writes nothing to the console, whatever the request", async () => {
+  const env = freshEnv();
+  const circle = await makeCircle();
+  const id = await generateIdentity();
+  const now = Date.now();
+  const good = await validPost(circle, id, now);
+  const forged = { ...(await validPost(circle, id, now + 1)), sig: good.sig };
+  const limited = { ...freshEnv({ RATE_POST_MIN: "1" }), DB: env.DB };
+
+  const methods = Object.keys(console).filter((k) => typeof console[k] === "function");
+  const original = Object.fromEntries(methods.map((k) => [k, console[k]]));
+  const calls = [];
+  const statuses = [];
+  for (const k of methods) console[k] = () => calls.push(k);
+  try {
+    statuses.push((await postLoc(env, circle.channel, good)).status);
+    statuses.push((await getFeed(env, circle.channel)).status);
+    statuses.push((await postLoc(env, circle.channel, forged)).status);
+    statuses.push((await postLoc(env, circle.channel, "{not json")).status);
+    statuses.push((await postLoc(limited, circle.channel, await validPost(circle, id, now + 2))).status);
+    statuses.push((await getFeed(brokenEnv(circle.channel), circle.channel)).status);
+    statuses.push((await req(env, "/api/v1/anything")).status);
+  } finally {
+    Object.assign(console, original);
+  }
+  assert.deepEqual(statuses, [200, 200, 403, 400, 429, 500, 410], "every path was really taken");
+  assert.deepEqual(calls, []);
+
+  // And it has no way to: the source never names the console at all.
+  const src = await import("node:fs").then((fs) => fs.readFileSync("relay/src/index.js", "utf8"));
+  assert.ok(!/\bconsole\b/.test(src));
+});
