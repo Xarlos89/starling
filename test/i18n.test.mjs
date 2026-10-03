@@ -145,6 +145,10 @@ test("no user-visible literal bypasses the translator", () => {
     for (const m of src.matchAll(/\.textContent = \w+ \? "([^"]{6,})" : "([^"]{6,})"/g)) {
       hits.push(`${f}: ternary "${m[1]}"`);
     }
+    // A direct property write skips the chokepoints the same way (starling#1, 2026-10-02).
+    for (const m of src.matchAll(/\.(?:placeholder|title|ariaLabel|alt) = "([^"]{4,})"/g)) {
+      if (!allow.has(m[1]) && !/^https?:\/\//.test(m[1])) hits.push(`${f}: property "${m[1]}"`);
+    }
     // el() translates its text, but an interpolated template is never a catalog key.
     for (const m of src.matchAll(/\bel\("\w+", "[^"]*", `([^`]*\$\{[^`]*)`/g)) {
       if (!allow.has(m[1])) hits.push(`${f}: el() template "${m[1].slice(0, 40)}"`);
@@ -152,3 +156,25 @@ test("no user-visible literal bypasses the translator", () => {
   }
   assert.deepEqual(hits, [], hits.slice(0, 6).join("\n"));
 });
+
+test("every label table is in the extractor's list", () => {
+  // STATUS_CHIPS went through t() at render time but never reached a catalog,
+  // so Spanish users saw English chips (starling#1, 2026-10-02).
+  const keys = new Set(
+    execFileSync("node", [path.join(ROOT, "tools", "extract-strings.mjs"), "--keys"], { encoding: "utf8" })
+      .split("\n")
+      .filter(Boolean),
+  );
+  const missing = [];
+  for (const f of ["app/js/main.js", "app/js/ui.js", "app/js/helpview.js"]) {
+    const src = readFileSync(path.join(ROOT, f), "utf8");
+    for (const m of src.matchAll(/\bconst ([A-Z_]+) = \[((?:\s*"[^"]*",?)+)\s*\]/g)) {
+      for (const v of m[2].matchAll(/"([^"]*)"/g)) {
+        const words = v[1].replace(/\\u\{[0-9A-Fa-f]+\}|\\u[0-9A-Fa-f]{4}/g, "");
+        if (/[A-Za-z]{2,}/.test(words) && !keys.has(v[1])) missing.push(`${f} ${m[1]}: "${v[1]}"`);
+      }
+    }
+  }
+  assert.deepEqual(missing, [], missing.slice(0, 8).join("\n"));
+});
+

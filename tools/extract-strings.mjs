@@ -52,6 +52,9 @@ for (const f of JS_FILES) {
   for (const m of src.matchAll(/\b(?:CHIP_TEXT|STATUS_LINE)\s*=\s*\{([^}]+)\}/g)) {
     for (const v of m[1].matchAll(/"((?:[^"\\]|\\.)+)"/g)) add(unq(v[1]));
   }
+  for (const m of src.matchAll(/\bSTATUS_CHIPS\s*=\s*\[([^\]]+)\]/g)) {
+    for (const v of m[1].matchAll(/"((?:[^"\\]|\\.)+)"/g)) add(unq(v[1]));
+  }
 }
 
 // Static page: data-i18n text nodes and data-i18n-attr attributes.

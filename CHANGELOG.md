@@ -3,6 +3,14 @@
 All notable changes to Starling are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
+## [Unreleased]
+
+- **Untranslated labels.** The status chips (On my way, Here, 5 minutes,
+  Running late, Busy), the status field hint, and the name and link-label
+  hints showed English in every language. They are translated now, and the
+  string tests fail on a label table or a placeholder that skips the
+  translator, which is how these got past them (#1).
+
 ## [0.16.0]
 
 - **Check-in timer.** A new button next to People and keys and Places sets a

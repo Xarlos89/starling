@@ -309,7 +309,7 @@ function identityFields(profile) {
   const input = el("input", "text-input");
   input.type = "text";
   input.maxLength = 24;
-  input.placeholder = "Name";
+  input.placeholder = t("Name");
   input.autocomplete = "off";
   input.value = profile?.name || "";
   input.dataset.testid = "identity-name";
@@ -1259,7 +1259,7 @@ export function openHelpSheet({ api, onAdd, onRevoke, onEnd, onClose }) {
   const addInput = el("input", "text-input");
   addInput.type = "text";
   addInput.maxLength = 40;
-  addInput.placeholder = "Who is it for?";
+  addInput.placeholder = t("Who is it for?");
   addInput.autocomplete = "off";
   addInput.dataset.testid = "viewer-label";
   addField.append(addInput);
@@ -1558,7 +1558,7 @@ export function openStatusSheet({ current, onSet, onClose }) {
   input.type = "text";
   input.maxLength = 24;
   input.value = current || "";
-  input.placeholder = "at the north gate";
+  input.placeholder = t("at the north gate");
   input.dataset.testid = "status-input";
   field.append(input);
   const save = btn("btn btn-primary", "Set status");

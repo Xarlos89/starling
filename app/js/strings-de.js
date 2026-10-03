@@ -631,4 +631,12 @@ export const de = {
   "Phone battery {pct}%": "Handy-Akku: {pct} %",
   "Link works until {time}": "Link gültig bis {time}",
   "Open in a map app": "In einer Karten-App öffnen",
+  "Name": "Name",
+  "Who is it for?": "Für wen?",
+  "at the north gate": "am Nordtor",
+  "On my way": "Unterwegs",
+  "Here": "Bin da",
+  "5 minutes": "5 Minuten",
+  "Running late": "Verspäte mich",
+  "Busy": "Beschäftigt",
 };

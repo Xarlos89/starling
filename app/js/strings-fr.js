@@ -631,4 +631,12 @@ export const fr = {
   "Phone battery {pct}%": "Batterie du téléphone : {pct} %",
   "Link works until {time}": "Lien valable jusqu'à {time}",
   "Open in a map app": "Ouvrir dans une app de cartes",
+  "Name": "Nom",
+  "Who is it for?": "Pour qui ?",
+  "at the north gate": "à la porte nord",
+  "On my way": "En route",
+  "Here": "Je suis là",
+  "5 minutes": "5 minutes",
+  "Running late": "En retard",
+  "Busy": "Occupé",
 };
