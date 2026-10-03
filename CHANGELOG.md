@@ -3,7 +3,7 @@
 All notable changes to Starling are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
-## [Unreleased]
+## [0.16.1]
 
 - **Untranslated labels.** The status chips (On my way, Here, 5 minutes,
   Running late, Busy), the status field hint, and the name and link-label
