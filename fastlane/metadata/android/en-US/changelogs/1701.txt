@@ -1,0 +1,1 @@
+Scanning a code works again. The camera was being refused to Starling's own page even with permission granted, so every scan said camera access was turned down. Scanning an invite or a safety number opens the camera again.

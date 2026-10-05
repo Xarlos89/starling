@@ -5,6 +5,8 @@ All notable changes to Starling are recorded here. Versions follow
 
 ## [Unreleased]
 
+## [0.17.1]
+
 - **Scanning a code works again on Android.** The camera was refused to
   Starling's own page even with the permission granted, so every scan said
   camera access was turned down (#23). Android hands the page's address over
