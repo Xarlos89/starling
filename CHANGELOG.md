@@ -3,6 +3,15 @@
 All notable changes to Starling are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
+## [Unreleased]
+
+- **Scanning a code works again on Android.** The camera was refused to
+  Starling's own page even with the permission granted, so every scan said
+  camera access was turned down (#23). Android hands the page's address over
+  with a slash on the end and the check did not allow for it. Scanning an
+  invite or a safety number opens the camera again, and the camera still
+  goes only to the app's own page.
+
 ## [0.17.0]
 
 - **A restart or an update no longer ends a share in silence.** Sharing

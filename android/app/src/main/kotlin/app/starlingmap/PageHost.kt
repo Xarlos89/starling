@@ -217,7 +217,7 @@ object PageHost {
                 origin: String,
                 callback: GeolocationPermissions.Callback,
             ) {
-                if (origin != "https://${MainActivity.ASSET_HOST}") {
+                if (!AssetOrigin.isOurs(origin)) {
                     callback.invoke(origin, false, false)
                     return
                 }
@@ -235,11 +235,8 @@ object PageHost {
             // navigates off the asset origin, but the check costs nothing
             // and a mistake elsewhere must not turn into a camera grant.
             override fun onPermissionRequest(request: PermissionRequest) {
-                val origin = request.origin
-                val ours = origin.toString() == "https://${MainActivity.ASSET_HOST}"
-                val video = request.resources.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
                 val ui = activity
-                if (!ours || !video || ui == null) {
+                if (!AssetOrigin.cameraAllowed(request.origin.toString(), request.resources) || ui == null) {
                     request.deny()
                     return
                 }
