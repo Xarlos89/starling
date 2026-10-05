@@ -328,6 +328,14 @@ than Cloudflare can run their own relay; see the FAQ and
     same generic line as every other alert. Settings, Places and alerts
     opens that channel's system page for anyone who wants it through total
     silence as well.
+    After a restart or an app update that ended a share, the events channel
+    also says "Sharing stopped" with a tap to share again. Like the
+    reminder, it tells anyone who sees the screen that Starling is installed
+    and was sharing, and nothing more. Nothing starts at boot: the receiver
+    reads a plaintext copy of the armed record (a start time and a window end,
+    the same facts the page already keeps unsealed for its own resume) and
+    posts or does not. The share itself comes back only when someone opens the
+    app, and under the app lock only after the passcode.
 17. **The sharing notification itself is a leak Android requires.** While
     you share, Android requires a visible foreground notification ("Sharing
     with your circle") for as long as the location service runs; there is no

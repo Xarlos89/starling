@@ -85,6 +85,13 @@ class StarlingBridge(private val app: Context) {
     @JavascriptInterface
     fun cancelShareReminder() = ShareReminder.cancel(app)
 
+    // The page's armed record, copied for a restart or an update: see ShareResume.
+    @JavascriptInterface
+    fun armShareResume(at: Long, deadline: Long) = ShareResume.arm(app, at, deadline)
+
+    @JavascriptInterface
+    fun disarmShareResume() = ShareResume.disarm(app)
+
     // ----------------------------------------------------- share stop trace
 
     // A share can end from the Stop button on the notification or from the

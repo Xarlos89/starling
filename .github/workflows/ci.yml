@@ -92,7 +92,7 @@ jobs:
       - name: Vendor sync
         run: npm ci && bash tools/sync-vendor.sh
       - name: Build release APK (unsigned)
-        run: cd android && ./gradlew --no-daemon assembleRelease lint
+        run: cd android && ./gradlew --no-daemon assembleRelease lint testDebugUnitTest
       - name: Assert only the expected permissions
         run: |
           AAPT=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | tail -1)
@@ -105,6 +105,7 @@ jobs:
             | grep -v "android.permission.FOREGROUND_SERVICE" \
             | grep -v "android.permission.FOREGROUND_SERVICE_LOCATION" \
             | grep -v "android.permission.POST_NOTIFICATIONS" \
+            | grep -v "android.permission.RECEIVE_BOOT_COMPLETED" \
             | grep -v "android.permission.WAKE_LOCK" \
             | grep -v "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" \
             | grep -v "android.permission.USE_BIOMETRIC" \

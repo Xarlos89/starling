@@ -5034,6 +5034,11 @@ async function panic() {
     // old wrapper
   }
   try {
+    native()?.disarmShareResume?.();
+  } catch {
+    // old wrapper
+  }
+  try {
     native()?.panicWipe?.();
   } catch {
     // old wrapper, or a native wipe that threw before its clear
@@ -5240,13 +5245,21 @@ const SHARE_ARMED = "shareArmed";
 
 const STOP_ROUTES = new Set(["notif", "swipe", "renderer", "system", "stalled", "lock"]);
 
+// The wrapper gets a copy, because after a restart or an update it has to
+// decide whether to offer the share back before any page exists to ask.
 async function armShare() {
+  const armed = {
+    at: Date.now(),
+    windowMs: shareWindowMs || 0,
+    deadline: shareDeadline || 0,
+  };
   try {
-    await dbSet(SHARE_ARMED, {
-      at: Date.now(),
-      windowMs: shareWindowMs || 0,
-      deadline: shareDeadline || 0,
-    });
+    native()?.armShareResume?.(armed.at, armed.deadline);
+  } catch {
+    // older wrapper
+  }
+  try {
+    await dbSet(SHARE_ARMED, armed);
   } catch (e) {
     // A share that cannot be written down still runs; it just will not come
     // back by itself, which is the behaviour this replaces.
@@ -5255,6 +5268,11 @@ async function armShare() {
 }
 
 async function disarmShare() {
+  try {
+    native()?.disarmShareResume?.();
+  } catch {
+    // older wrapper
+  }
   try {
     await dbDel(SHARE_ARMED);
   } catch (e) {
@@ -5304,7 +5322,9 @@ async function resumeShareIfArmed() {
   }
   await setSharing(true);
   if (!state.sharing) return false; // permission gone, startWatch refused
-  if (armed.deadline) setShareWindow(Math.max(1000, armed.deadline - Date.now()));
+  if (armed.deadline) setShareWindow(Math.max(1000, armed.deadline - Date.now()), { rearm: false });
+  // setSharing armed it before the window was back; this one carries the deadline.
+  await armShare();
   shareResumed = true;
   const ended = (Number(state.stopRecord?.at) || 0) >= (armed.at || 0) ? state.stopRecord?.route : null;
   ui.toast(
@@ -5326,13 +5346,18 @@ let shareDeadline = null;
 let shareDeadlineTimer = 0;
 let shareWindowMs = 0;
 
-function setShareWindow(ms) {
+function setShareWindow(ms, { rearm = true } = {}) {
   clearTimeout(shareDeadlineTimer);
   shareDeadlineTimer = 0;
   shareWindowMs = ms || 0;
   shareDeadline = ms ? Date.now() + ms : null;
   if (ms) {
     shareDeadlineTimer = setTimeout(endTimedShare, ms);
+  }
+  // The armed record was written at the start; a window picked since then has
+  // to reach it, or a restart brings back a share that should have ended.
+  if (rearm && state.sharing && !state.demo) {
+    armShare().catch((e) => window.__starlingErrors.push(`share arm: ${String(e)}`));
   }
   render();
 }

@@ -34,6 +34,10 @@ object Events {
     fun postShareOff(ctx: Context) =
         show(ctx, R.string.notif_remind_title, R.string.notif_remind_text, ShareReminder.TAG, false)
 
+    // After a restart or an update (ShareResume). Same rule: no circle, no person.
+    fun postShareResume(ctx: Context, @StringRes textRes: Int) =
+        show(ctx, R.string.notif_swiped_title, textRes, ShareResume.TAG, false)
+
     // String resources only, so nothing a caller was handed can reach a notification field.
     private fun show(ctx: Context, @StringRes titleRes: Int, @StringRes textRes: Int, tag: String, urgent: Boolean) {
         if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) !=

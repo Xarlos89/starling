@@ -219,6 +219,8 @@ class LocationService : Service(), LocationListener {
         if (intent?.action == ACTION_STOP) {
             // A user action, not a failure: the page turns sharing off cleanly.
             stopAsked = true
+            // Here as well as in the page, which may be frozen or gone.
+            ShareResume.disarm(this)
             sink?.invoke(JSONObject().put("stopped", true).toString())
             postShareEnded("notif")
             stopSelf()

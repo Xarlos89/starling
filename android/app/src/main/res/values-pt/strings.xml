@@ -14,6 +14,8 @@
     <string name="notif_locked_text">Abra o Starling para ver o que aconteceu.</string>
     <string name="notif_remind_title">O compartilhamento está desligado</string>
     <string name="notif_remind_text">Abra o Starling para compartilhar de novo.</string>
+    <string name="notif_resume_boot_text">Seu telefone foi reiniciado. Toque para compartilhar de novo.</string>
+    <string name="notif_resume_update_text">O Starling foi atualizado. Toque para compartilhar de novo.</string>
     <string name="notif_stop">Parar</string>
     <string name="bio_wrap_title">Confirme para ativar o desbloqueio biométrico</string>
     <string name="bio_unwrap_title">Desbloquear o Starling</string>

@@ -3,6 +3,22 @@
 All notable changes to Starling are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
+## [Unreleased]
+
+- **A restart or an update no longer ends a share in silence.** Sharing
+  already came back when you opened Starling, but nothing told you it had
+  stopped. Now one notification says so, with a tap to share again (#22). It
+  names no circle and no person, and stays away when you stopped the share
+  yourself, a timed share has run out, or after a panic wipe. The tap opens
+  the app, so the app lock still asks for the passcode first. Starling cannot
+  turn the share back on by itself: Android 11 and later give an app with
+  while-in-use location no fixes from a service started at boot, and Android
+  14 and later refuse to start it. docs/ANDROID.md has the emulator results.
+- **A timed share picked after sharing started now ends on time after the app
+  is closed.** The window you chose was not written down, so a reopen brought
+  the share back with no end. The same happened to a timed share that had
+  already come back once.
+
 ## [0.16.1]
 
 - **Untranslated labels.** The status chips (On my way, Here, 5 minutes,

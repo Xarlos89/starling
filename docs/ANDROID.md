@@ -262,9 +262,62 @@ that came to 45 minutes on 1 h and an hour, the cap, on 12 h, so the hour
 choices use the window. Under about 13 minutes the plain alarm is the tighter
 one. Settings never offers that, but a debug build can ask the bridge for 60
 seconds, and that reminder lands inside 2 minutes. Doze can hold either kind
-back, and a restart drops it since the app does not listen for boot. If the
-reminder never turns up on your phone, please say so on #6 with the phone
-model.
+back, and a restart drops it: the boot receiver below offers a share back and
+does not set reminders again. If the reminder never turns up on your phone,
+please say so on #6 with the phone model.
+
+### After a restart or an update
+
+A restart or an app update kills the page that seals every position, so the
+share stops (#22). Opening Starling has put it back since 0.12.1, but nothing
+told you it had stopped. Now a receiver for `BOOT_COMPLETED` and
+`MY_PACKAGE_REPLACED` posts one notification on the events channel: "Sharing
+stopped. Your phone restarted. Tap to share again." (or "Starling was
+updated"). It names no circle and no person. The tap opens the app, which
+resumes the share the way any reopen does, after the passcode if the app lock
+is on. Nothing is decrypted or sent before that.
+
+It only offers a share that would come back on a reopen anyway. The page hands
+the wrapper a copy of its armed record (when the share started and when its
+window ends, nothing else), and the receiver stays quiet if the share was
+turned off by hand or with Stop on the notification, if a timed share's
+window has passed, or after a panic wipe, which deletes the copy with
+everything else. Starting a share or stopping one takes the notification
+down. The receiver is not exported; both broadcasts come from the system.
+
+Why a tap and not a silent restart: the app only holds while-in-use location
+and never asks for background location. A location service started from a
+boot or update receiver was measured on the emulators, with the same signer
+installed over itself (`adb install -r`) and a real `adb reboot`, and fixes
+fed in with `adb emu geo fix`. As a control, the same service started with the
+app on screen got 10 or 11 fixes from 8 injections on every image.
+
+| Android | Service started at boot or update | Fixes |
+| --- | --- | --- |
+| 9 (API 28) | starts, notification shows | arrive |
+| 10 (API 29) | starts, notification shows | arrive |
+| 13 (API 33) | starts, notification shows | none in 24 s |
+| 16 (API 36) | `startForeground` throws `SecurityException` | none |
+
+That matches Android's own rules. From Android 11 a foreground service started
+in the background cannot use location without background location, and from
+14 the start itself fails ([while-in-use
+restrictions](https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start#wiu-restrictions),
+[Android 11
+change](https://developer.android.com/about/versions/11/privacy/foreground-services),
+[location type
+prerequisites](https://developer.android.com/develop/background-work/services/fgs/service-types#location)).
+A boot receiver is not on the list of exemptions. Android 15's boot receiver
+limits leave the location type out
+([list](https://developer.android.com/about/versions/15/behavior-changes-15#fgs-boot-completed)),
+which does not help when 14 already refuses it. On Android 9 and 10 the
+service would get fixes, but positions are sealed in the page, and the page
+only starts a share from a window: the WebView version gate and the Orbot
+proxy are set up there. So every version gets the tap.
+
+An update from 0.16.1 or older to this version offers nothing, because the
+older page never handed its record over. The first share after the update
+does.
 
 ## Sharing with the screen off
 

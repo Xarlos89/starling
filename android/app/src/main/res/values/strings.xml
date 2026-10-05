@@ -14,6 +14,8 @@
     <string name="notif_locked_text">Open Starling to see what happened.</string>
     <string name="notif_remind_title">Sharing is off</string>
     <string name="notif_remind_text">Open Starling to share again.</string>
+    <string name="notif_resume_boot_text">Your phone restarted. Tap to share again.</string>
+    <string name="notif_resume_update_text">Starling was updated. Tap to share again.</string>
     <string name="notif_stop">Stop</string>
     <string name="bio_wrap_title">Confirm to set up biometric unlock</string>
     <string name="bio_unwrap_title">Unlock Starling</string>
