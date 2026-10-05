@@ -3,7 +3,7 @@
 All notable changes to Starling are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
-## [Unreleased]
+## [0.17.0]
 
 - **A restart or an update no longer ends a share in silence.** Sharing
   already came back when you opened Starling, but nothing told you it had

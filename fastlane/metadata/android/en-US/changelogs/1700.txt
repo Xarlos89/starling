@@ -1,0 +1,1 @@
+If a restart or an app update stops your share, Starling now tells you with one notification, and a tap shares again. It names no circle or person and stays quiet if you stopped the share yourself or a timed share ran out. A time limit picked after sharing started now holds after the app is closed.
